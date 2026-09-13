@@ -61,12 +61,21 @@ export async function fetchMoxfieldDeck(deckUrl: string): Promise<MoxfieldRawDec
   const publicId = extractMoxfieldPublicId(deckUrl);
   const res = await fetch(`${API_BASE}/${publicId}`, {
     headers: {
-      // Moxfield has historically rejected requests with no UA / a bare
-      // Node default UA; a normal-browser-looking UA is the documented
-      // workaround in the community tooling this is modeled on.
+      // First deployment (Render) caught a real bug here: this used to send
+      // a UA that literally self-identifies as a bot
+      // ("compatible; mtg-sim/0.1; +https://github.com/...") despite a
+      // comment claiming it was "browser-looking" - it wasn't, and Moxfield
+      // (likely Cloudflare bot management in front of its API) returned 403
+      // for every request from a real deployment, even though the exact same
+      // deck loads fine in an actual browser. Sending headers that actually
+      // resemble what moxfield.com's own frontend sends when it calls this
+      // endpoint is the fix.
       "User-Agent":
-        "Mozilla/5.0 (compatible; mtg-sim/0.1; +https://github.com/TLOh2/mtg-sim)",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       Accept: "application/json",
+      "Accept-Language": "en-US,en;q=0.9",
+      Referer: "https://www.moxfield.com/",
+      Origin: "https://www.moxfield.com",
     },
   });
   if (!res.ok) {

@@ -295,6 +295,38 @@ your phone" step is unproven**. Please try the deploy and tell me exactly
 what breaks, if anything - same pattern as the MDFC bug: real data/real
 environments catch things reasoning alone can't.
 
+### Update: it deployed - and immediately caught a real bug
+
+You deployed to Render successfully (build passed, dashboard loads,
+"+ New run" works end to end as designed - the run showed up immediately as
+`"running"`, then flipped to a real `"failed"` status with a readable error,
+exactly per spec). The failure itself was real and useful: importing your
+actual Éowyn/Jeskai deck (the same URL from Phase 1) got
+`Moxfield API request failed: 403 Forbidden` - from Render's real servers,
+not this session's blocked network.
+
+Root cause, found on inspection: `fetchMoxfieldDeck`'s comment claimed it
+sent "a normal-browser-looking UA," but the actual header
+(`"Mozilla/5.0 (compatible; mtg-sim/0.1; +https://github.com/...)"`)
+**literally self-identifies as a bot** - the opposite of what the comment
+said. Almost certainly what Moxfield's (likely Cloudflare-fronted) API was
+rejecting: the same deck loads fine in a real browser, and this exact 403
+also showed up when this session's own `fetch()` reached out earlier (see
+the `dashboard-start-run-smoke-test.sh` run above) - consistent with a bot
+check, not an IP block, since the failure mode is identical across two very
+different networks.
+
+Fixed in `server/src/importers/moxfield.ts`: swapped in a real Chrome UA
+string plus `Accept-Language`/`Referer`/`Origin` headers matching what
+moxfield.com's own frontend would actually send when it calls this
+endpoint. **Not yet re-verified against the real deck** - this session
+still can't reach moxfield.com itself, so the loop is the same as before:
+pushed the fix, Render's `autoDeploy` should pick it up, and the real test
+is you retrying the same run once the redeploy finishes. If it's still
+403ing after this, the next suspect is IP-based blocking (Cloudflare
+denying Render's datacenter IP ranges outright, no header fixes that) -
+worth knowing before spending more effort on header-tweaking if so.
+
 ## Phase 5 — deprioritized by you; dropped from active scope
 
 Was going to be blocked anyway (`archidekt.com` is blocked by this session's
