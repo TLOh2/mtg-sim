@@ -223,6 +223,13 @@ Redirecting that effort at Moxfield instead - see the ask right below.
   extra runtime deps yet. Tests via Node's built-in `node:test` + `tsx`
   (no vitest/jest) to keep the dependency footprint minimal for now - revisit
   if test needs grow past what that comfortably covers.
+- Storage: deviated from `spec.json`'s original "SQLite" plan to plain flat
+  JSON files, one per run, under `data/runs/<run-id>.json` (gitignored -
+  regenerable output, not source). A run is written once by one process and
+  read by the API/dashboard afterward; there's no concurrent-writer or
+  querying-across-runs need that would justify a database yet. `spec.json`
+  updated to reflect this as the actual decision. Revisit if/when cross-run
+  querying (e.g. "compare win rates across runs") becomes a real need.
 - `.dck` card-line resolution strategy: emit the full `name|SET|CN` form when
   the source deck gives us both; otherwise fall back to a bare `name` line.
   Forge's own deck-line parser (`DeckRecognizer`) accepts both and resolves

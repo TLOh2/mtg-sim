@@ -213,7 +213,7 @@
   "tech_stack": {
     "backend_and_pipeline": "Node.js + TypeScript",
     "frontend": "React + Vite",
-    "storage": "SQLite (file-based; no external service to run)",
+    "storage": "flat JSON files under data/runs/<run-id>.json (see PROGRESS.md decisions - deviated from an original SQLite plan since a single-writer, read-mostly, one-file-per-run shape didn't need a database)",
     "rationale": "single language across import pipeline/API/UI, minimal operational overhead for a local single-user tool"
   },
 
