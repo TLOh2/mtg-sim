@@ -7,20 +7,28 @@ aggregate results and individual game logs in a web dashboard.
 See `spec.json` for the full data model/decisions and `PROGRESS.md` for the
 build history and what's been validated against real data.
 
-## One-time setup
+## Quick start
 
 ```bash
 git submodule update --init engine/forge   # vendored Forge, pinned commit
-bash engine/build.sh                        # builds the 5 modules sim mode needs
-cd server && npm install
-cd ../web && npm install
+bash scripts/start-dashboard.sh
 ```
 
-`engine/build.sh` only needs to be re-run after pulling a newer `engine/forge`
-submodule commit; its output (a Maven local repo + `engine/.runtime-classpath.txt`)
-is reused by every simulation after that.
+That's it - one command. The first run builds Forge and installs
+dependencies (takes a few minutes; every run after that is fast), then starts
+both servers and opens the dashboard in your browser. Press Ctrl+C in that
+terminal to stop everything cleanly.
 
-## Running it: the dashboard (recommended)
+Click **+ New run**, paste 4 Moxfield deck URLs (`https://moxfield.com/decks/<id>`,
+one per player), and submit. A full batch (20 games by default) can take a
+while; the run appears immediately with a "running" status and the page
+polls until it's done, so it's safe to navigate away and come back later.
+
+### Running the two servers by hand
+
+`scripts/start-dashboard.sh` is just a wrapper around these two commands, in
+case you want more control (a fixed port, separate terminals to watch each
+server's own output, etc.):
 
 ```bash
 # terminal 1
@@ -29,13 +37,6 @@ cd server && npm run api        # API server on :4000
 # terminal 2
 cd web && npm run dev           # dashboard on the printed localhost URL (proxies /api -> :4000)
 ```
-
-Open the dashboard, click **+ New run**, and paste 4 Moxfield deck URLs
-(`https://moxfield.com/decks/<id>`) - one per player. Submitting fetches and
-converts each deck, then runs the batch through Forge. A full batch (20 games
-by default) can take a while; the run appears immediately with a "running"
-status and the page polls until it's done, so it's safe to navigate away and
-come back later.
 
 ## Running it: the CLI
 
@@ -69,6 +70,11 @@ bash scripts/phase4-smoke-test.sh   # API + dashboard serve a real persisted run
 bash scripts/dashboard-start-run-smoke-test.sh  # POST /api/runs request/response plumbing
 (cd server && npm test)             # log parsing + turning-point detection (Phase 3), unit-tested
 ```
+
+`scripts/start-dashboard.sh` itself isn't a self-check with assertions (it's
+meant to be run and left running, not to exit) - it was manually verified to
+bring both servers up, serve the dashboard, and shut down cleanly (no
+orphaned processes or held ports) on Ctrl+C.
 
 ## Project layout
 

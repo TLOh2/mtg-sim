@@ -210,6 +210,30 @@ same limitation Phase 1 had, and the same fix applies (run it from
 somewhere with normal network access, or paste me the URLs/JSON and I'll
 walk through it with you).
 
+### Update: one-command launch
+
+You asked for "a website I can paste my Moxfield decks into." Clarified
+scope first: a real publicly-reachable URL would mean actual server hosting
+(a machine with Java + Forge + outbound internet, running continuously) -
+that's a real infrastructure/cost decision needing your call, not mine. You
+picked local-and-easy instead: same dashboard as before, but one command.
+
+Added `scripts/start-dashboard.sh`: builds Forge and installs npm deps the
+first time (if not already done), starts the API server and the dashboard
+dev server (both logging to temp files rather than this script's own
+stdout - see the pipe-hang lesson below), waits for each to actually be
+listening, opens your default browser to the dashboard, and on Ctrl+C tears
+both down cleanly (via `lsof` on each port, not just the originally-captured
+PIDs - same belt-and-suspenders cleanup as `phase4-smoke-test.sh`, for the
+same reason).
+
+Manually verified: started it, confirmed both the API (`:4000`) and
+dashboard (`:5173`) came up and served real responses, sent it a real
+`SIGINT` (not just killing a wrapper PID - made that mistake once during
+testing and it left orphans, corrected by signaling the actual script
+process), and confirmed both ports were completely free afterward with no
+leftover `tsx`/`vite` processes.
+
 **A real bug worth recording:** the first version of this script hung for
 2+ hours (you caught it - thank you). Root cause, confirmed via `/proc`
 inspection of the stuck process: the background API server inherited this
