@@ -7,7 +7,9 @@
     "build": "tsc -p tsconfig.json",
     "test": "node --import tsx --test src/**/*.test.ts",
     "import:moxfield": "tsx src/cli/import-moxfield.ts",
-    "sim:pod": "tsx src/cli/run-pod.ts"
+    "sim:pod": "tsx src/cli/run-pod.ts",
+    "analyze:pod": "tsx src/cli/analyze-pod.ts",
+    "api": "tsx src/api/server.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
