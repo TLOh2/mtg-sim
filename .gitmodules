@@ -1,0 +1,3 @@
+[submodule "engine/forge"]
+	path = engine/forge
+	url = https://github.com/card-forge/forge.git

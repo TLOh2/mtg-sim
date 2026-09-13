@@ -1,0 +1,228 @@
+{
+  "$provenance": "This file did not exist in the repo at session start (empty repo, no commits/branches, verified against GitHub). Authored by Claude from the task description + research into Forge/Moxfield/Archidekt to unblock work — see PROGRESS.md. Treat as a strong first draft to review/correct, not a finalized decision record.",
+
+  "project": {
+    "name": "Commander Simulator Platform",
+    "description": "Import Commander decklists, convert to Forge's .dck format, batch-simulate pods via Forge's headless CLI sim mode, parse results and detect turning points, and present them in a web dashboard.",
+    "scope_boundary": "Single local user, Commander format only, batch simulation (not interactive play), no auth/hosting concerns."
+  },
+
+  "engine": {
+    "name": "Forge",
+    "upstream_repo": "https://github.com/card-forge/forge",
+    "vendoring": "git submodule at engine/forge, pinned to a specific commit (see engine/forge-pin.txt)",
+    "build_tool": "Maven",
+    "java_version": "17 (project targets maven.compiler.release=17; JDK 21 used here builds it fine)",
+    "modules_required_for_headless_sim": [
+      "forge-core", "forge-game", "forge-ai", "forge-gui", "forge-gui-desktop"
+    ],
+    "modules_intentionally_skipped": [
+      "forge-gui-mobile", "forge-gui-mobile-dev", "forge-gui-android",
+      "forge-gui-ios", "adventure-editor", "forge-installer", "forge-lda"
+    ],
+    "cli_entry_point": "forge.view.Main",
+    "cli_mode": "sim",
+    "cli_invocation_shape": "java -cp <classpath> forge.view.Main sim -d <deck1.dck> <deck2.dck> ... -f Commander -n <games> -q",
+    "cli_flags": {
+      "-d": "one or more deck files/names, in player order",
+      "-D": "absolute directory to load decks from (alternative to -d)",
+      "-n": "number of games (default 1) - spec default below is 20",
+      "-m": "play a full match of N games instead of -n (not used; we run independent games, not a match)",
+      "-f": "format, e.g. Commander",
+      "-s": "RNG seed (optional, useful for reproducing a specific game)",
+      "-a": "AI profile per player (optional; default AI used unless we later want to compare AI configs)",
+      "-c": "per-game clock in seconds before it's called a draw; Forge default is 120 - likely needs raising for 4-player Commander games and will be tuned empirically in Phase 0/2",
+      "-q": "quiet: only emit match-result lines, not the full log. We do NOT use this flag, since Phase 3 needs the full per-game log to parse."
+    },
+    "output": "stdout: per-game log lines (forge.game.GameLogEntry.toString()) followed by a 'Game Result: ...' summary line per game",
+    "known_risks": [
+      "AI may stall on complex board states; -c clock exists as a safety valve, tune the timeout empirically",
+      "Card resolution: a specific printing referenced by an imported deck may not exist in Forge's card database"
+    ]
+  },
+
+  "deck_format": {
+    "extension": ".dck",
+    "encoding": "plain text, INI-like sections",
+    "sections": ["metadata", "Avatar", "Commander", "Main", "Sideboard", "Planes", "Schemes", "Conspiracy", "Dungeon"],
+    "metadata_fields": ["Name"],
+    "card_line_format": "<count> <card name>|<set code>|<collector number>",
+    "commander_section_note": "Exactly one (or two, for partner commanders) card(s) in [Commander]; the rest of the 99 in [Main]. Confirmed against Forge's own bundled Commander precons at forge-gui/res/adventure/common/decks/starter/commander/*.dck",
+    "example_source_used_for_validation": "forge-gui/res/adventure/common/decks/starter/commander/red_01.dck (vendored inside the Forge submodule, not duplicated in this repo)"
+  },
+
+  "deck_sources": {
+    "moxfield": {
+      "phase": 1,
+      "status": "to validate empirically against real deck URLs",
+      "api_note": "Moxfield has an undocumented public JSON API used by its own web client (api2.moxfield.com/v2/decks/all/{publicId}); no official API docs. Confirm exact response shape empirically in Phase 1 and record findings here/in PROGRESS.md.",
+      "input_shape_expected": "a Moxfield deck URL, e.g. https://www.moxfield.com/decks/<publicId>",
+      "normalization_target": "internal NormalizedDeck shape (see data_model.NormalizedDeck) decoupled from Moxfield's response shape"
+    },
+    "archidekt": {
+      "phase": 5,
+      "status": "OPEN QUESTION (per original task framing) - exact export shape not assumed here; Phase 5 must fetch a real Archidekt deck URL, inspect the actual response, and document findings before writing the importer",
+      "input_shape_expected": "an Archidekt deck URL, e.g. https://archidekt.com/decks/<id>",
+      "do_not_guess": true
+    }
+  },
+
+  "pipeline": {
+    "stages": [
+      "fetch (source-specific: Moxfield/Archidekt API call)",
+      "normalize (source-specific response -> NormalizedDeck)",
+      "resolve (NormalizedDeck card entries -> a concrete Forge printing per card; fallback: match by name if exact set/collector-number printing isn't in Forge's DB)",
+      "convert (NormalizedDeck + resolved printings -> .dck file)",
+      "simulate (invoke Forge sim CLI with 4 .dck files)",
+      "parse (raw stdout log -> structured per-game event list + result)",
+      "analyze (event list -> turning points, per spec.turning_point_signals)",
+      "persist (store run + games + events + analysis)",
+      "present (dashboard reads persisted results)"
+    ]
+  },
+
+  "simulation_defaults": {
+    "pod_size": 4,
+    "games_per_batch": 20,
+    "format": "Commander",
+    "seed_strategy": "unseeded by default for a batch (each game independently random); support an optional fixed seed per game for reproducing/debugging one specific game"
+  },
+
+  "log_parsing": {
+    "input": "Forge sim-mode stdout: a sequence of GameLogEntry lines per game, then a 'Game Result: ...' summary line",
+    "target_shape": "per game: { gameIndex, durationMs, players[], events[], winner, isDraw }, events[] = { turn, index, type, raw, players_involved[] } at minimum",
+    "note": "Forge's GameLogEntryType enum (in forge-game) is the authoritative list of log line categories; use it to classify lines rather than re-inventing categories from scratch."
+  },
+
+  "turning_point_signals": {
+    "note": "Seed list per task instructions. Explicitly expected to be refined once real logs are in hand (see PRD.md risk #4) - this is a starting hypothesis, not a final taxonomy.",
+    "signals": [
+      {
+        "id": "board_wipe",
+        "description": "A mass-removal effect destroys/exiles multiple creatures across multiple players in one event.",
+        "heuristic": "log line(s) indicating a spell/ability that matches 'destroys all' / 'each player sacrifices' / similar, followed by multiple creatures leaving the battlefield in the same step."
+      },
+      {
+        "id": "large_life_swing",
+        "description": "A single event changes a player's life total by a large margin (damage burst, big lifegain, or a life-loss payment).",
+        "heuristic": "life total delta for one player >= 10 in a single log step."
+      },
+      {
+        "id": "player_elimination",
+        "description": "A player is removed from the game (loses).",
+        "heuristic": "GameLogEntryType for a player loss / MATCH_RESULTS entry naming a player as having lost mid-game."
+      },
+      {
+        "id": "commander_cast_or_recast",
+        "description": "A commander is cast from the command zone, especially a recast paying commander tax after a prior removal.",
+        "heuristic": "a cast event whose source is a card also present in that player's [Commander] section, cross-referenced against prior commander-zone-change events for the same card."
+      },
+      {
+        "id": "extra_turn",
+        "description": "A player takes an additional turn.",
+        "heuristic": "a turn-structure log event indicating an extra turn granted, or two turn entries in a row for the same player."
+      },
+      {
+        "id": "mass_land_destruction",
+        "description": "Multiple lands are destroyed in one event, across one or more players.",
+        "heuristic": "multiple land permanents leaving the battlefield via destroy/sacrifice in the same step."
+      },
+      {
+        "id": "big_card_draw",
+        "description": "A player draws an unusually large number of cards in one event.",
+        "heuristic": "a draw event of >= 5 cards for one player in a single step."
+      },
+      {
+        "id": "combo_loop_detected",
+        "description": "A repeating near-identical sequence of log lines suggests an infinite/combo loop being resolved (or the sim clock cutting it off).",
+        "heuristic": "the same (source, ability) pair repeating >= N times in a short window of consecutive steps."
+      },
+      {
+        "id": "lethal_combat",
+        "description": "Combat damage in a single combat step reduces a player to 0 or below (the finishing blow).",
+        "heuristic": "a combat-damage log step whose target player's resulting life <= 0."
+      },
+      {
+        "id": "key_counterspell",
+        "description": "A spell is countered that would otherwise have been a large mana-value/impactful play.",
+        "heuristic": "a counter event whose countered spell has mana value >= 5 (threshold to revisit once real data is seen)."
+      }
+    ]
+  },
+
+  "data_model": {
+    "NormalizedDeck": {
+      "id": "string",
+      "sourceType": "'moxfield' | 'archidekt'",
+      "sourceUrl": "string",
+      "name": "string",
+      "commander": "CardRef[] (1, or 2 for partners/backgrounds)",
+      "mainboard": "CardRef[]",
+      "fetchedAt": "ISO timestamp"
+    },
+    "CardRef": {
+      "name": "string",
+      "setCode": "string | null (as reported by the source; may not resolve to a real Forge printing)",
+      "collectorNumber": "string | null",
+      "quantity": "number"
+    },
+    "ResolvedCard": {
+      "cardRef": "CardRef",
+      "forgeSetCode": "string",
+      "forgeCollectorNumber": "string",
+      "resolutionMethod": "'exact' | 'name-fallback'"
+    },
+    "Pod": {
+      "id": "string",
+      "decks": "NormalizedDeck[4]",
+      "createdAt": "ISO timestamp"
+    },
+    "SimulationRun": {
+      "id": "string",
+      "podId": "string",
+      "gamesRequested": "number (default 20)",
+      "status": "'pending' | 'running' | 'complete' | 'failed'",
+      "startedAt": "ISO timestamp",
+      "completedAt": "ISO timestamp | null"
+    },
+    "GameResult": {
+      "id": "string",
+      "runId": "string",
+      "gameIndex": "number",
+      "winnerDeckId": "string | null (null if draw)",
+      "isDraw": "boolean",
+      "durationMs": "number",
+      "rawLog": "string (full stdout for this game, kept for re-parsing if the parser improves)",
+      "events": "GameEvent[]",
+      "turningPoints": "TurningPoint[]"
+    },
+    "GameEvent": {
+      "turn": "number",
+      "index": "number (sequence within game)",
+      "type": "string (from Forge's GameLogEntryType, or 'unclassified')",
+      "raw": "string",
+      "playersInvolved": "string[]"
+    },
+    "TurningPoint": {
+      "signalId": "string (matches turning_point_signals[].id)",
+      "eventIndex": "number (index into GameEvent[])",
+      "description": "string (human-readable, generated)"
+    }
+  },
+
+  "tech_stack": {
+    "backend_and_pipeline": "Node.js + TypeScript",
+    "frontend": "React + Vite",
+    "storage": "SQLite (file-based; no external service to run)",
+    "rationale": "single language across import pipeline/API/UI, minimal operational overhead for a local single-user tool"
+  },
+
+  "phases": [
+    { "phase": 0, "name": "Forge headless build + CLI sim smoke test", "done_when": "sim mode invoked with two real .dck decks produces a real winner + log, reproducibly" },
+    { "phase": 1, "name": "Moxfield import -> normalized decklist -> .dck", "done_when": "at least two real Moxfield deck URLs convert to valid, Forge-loadable .dck files" },
+    { "phase": 2, "name": "Pipeline wired into Forge sim mode", "done_when": "one real 4-deck pod runs a 20-game batch and yields structured per-game results" },
+    { "phase": 3, "name": "Log parsing + turning-point detection", "done_when": "a batch's games are parsed into structured events with turning points flagged, on real (not fixture) logs" },
+    { "phase": 4, "name": "Results dashboard + game log viewer", "done_when": "a batch's aggregate results and an individual game's log are viewable in a browser" },
+    { "phase": 5, "name": "Archidekt import", "done_when": "a real Archidekt deck URL converts to a valid .dck, with the export-shape investigation documented" }
+  ]
+}

@@ -1,0 +1,19 @@
+# Forge build output (submodule itself is tracked via .gitmodules; its own
+# build artifacts are not committed)
+engine/.runtime-classpath.txt
+engine/forge/**/target/
+
+# Node
+node_modules/
+dist/
+.env
+.env.local
+
+# Simulation run artifacts (raw logs / generated decks are data, not code -
+# revisit if we want to commit sample fixtures deliberately)
+data/runs/*
+!data/runs/.gitkeep
+
+# OS/editor cruft
+.DS_Store
+*.log
