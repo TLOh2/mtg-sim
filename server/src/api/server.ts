@@ -15,8 +15,7 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { RUNS_DIR } from "../analyze/runAndAnalyzePod.js";
-import { startPodFromMoxfieldDecks, type DeckInput } from "../analyze/startPodFromMoxfieldDecks.js";
-import { extractMoxfieldPublicId } from "../importers/moxfield.js";
+import { startPodFromDecklistText, type DeckInput } from "../analyze/startPodFromDecklistText.js";
 import type { RunSummary } from "../analyze/types.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
@@ -136,11 +135,11 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // decks are fetched client-side (in the browser) and posted here as
-    // { url, raw } pairs - the server never fetches Moxfield itself. See
-    // web/src/moxfieldClient.ts / PROGRESS.md for why: a server-side fetch
-    // to Moxfield's API gets 403'd on this deployment, most likely by
-    // TLS/network-level bot detection no amount of header-spoofing clears.
+    // decks are pasted decklist text (Moxfield's own "Copy for Moxfield"
+    // export - see importers/moxfieldText.ts), not fetched by anyone here.
+    // Both a server-side fetch (bot detection, confirmed 403 on a real
+    // deploy) and a browser-side fetch (CORS, confirmed blocked in a real
+    // browser) turned out to be dead ends - see PROGRESS.md.
     const decks = payload.decks;
     if (
       !Array.isArray(decks) ||
@@ -149,27 +148,17 @@ const server = createServer(async (req, res) => {
         (d) =>
           typeof d !== "object" ||
           d === null ||
-          typeof (d as { url?: unknown }).url !== "string" ||
-          !(d as { url: string }).url.trim() ||
-          !("raw" in d) ||
-          typeof (d as { raw?: unknown }).raw !== "object" ||
-          (d as { raw?: unknown }).raw === null,
+          typeof (d as { label?: unknown }).label !== "string" ||
+          typeof (d as { decklistText?: unknown }).decklistText !== "string" ||
+          !(d as { decklistText: string }).decklistText.trim(),
       )
     ) {
       sendJson(res, 400, {
-        error: "decks must be an array of exactly 4 { url, raw } entries (raw = the fetched Moxfield deck JSON)",
+        error: "decks must be an array of exactly 4 { label, decklistText } entries",
       });
       return;
     }
     const deckInputs = decks as DeckInput[];
-    for (const { url } of deckInputs) {
-      try {
-        extractMoxfieldPublicId(url);
-      } catch {
-        sendJson(res, 400, { error: `Not a recognizable Moxfield deck URL: ${url}` });
-        return;
-      }
-    }
 
     const games =
       typeof payload.games === "number" && Number.isFinite(payload.games)
@@ -181,10 +170,10 @@ const server = createServer(async (req, res) => {
         : 180;
 
     const runId = `web-${randomUUID()}`;
-    // Fire-and-forget: startPodFromMoxfieldDecks persists all progress/errors
+    // Fire-and-forget: startPodFromDecklistText persists all progress/errors
     // to data/runs/<runId>.json itself (see its own try/catch), so there's
     // nothing more to do with this promise here.
-    void startPodFromMoxfieldDecks({ runId, decks: deckInputs, games, clockSeconds });
+    void startPodFromDecklistText({ runId, decks: deckInputs, games, clockSeconds });
 
     sendJson(res, 202, { runId, status: "running" });
     return;

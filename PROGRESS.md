@@ -391,6 +391,85 @@ since I still can't reach moxfield.com from here to check myself. If CORS
 does block it, the honest next step is the manual paste-JSON fallback
 proposed earlier, not more attempts to disguise the request.
 
+### Update: CORS confirmed blocked - switched to pasted decklist text
+
+You checked your browser's devtools console and got a definitive answer:
+`Access to fetch at 'https://api2.moxfield.com/...' from origin
+'https://mtg-sim.onrender.com' has been blocked by CORS policy: No
+'Access-Control-Allow-Origin' header is present`, on all 4 decks. That
+closes the loop on both automated approaches - server-side fetch (bot
+detection) and browser-side fetch (CORS) are both real, confirmed dead
+ends, not something more header/config tweaking fixes.
+
+You asked whether you could still share the URL with friends, which
+sharpened the requirements: whatever replaces automated fetching needs to
+work for anyone who opens the link, not just you locally. You also asked
+why Tabletop Simulator can import from a Moxfield URL fine - worth recording
+the actual answer, since it explains both walls at once: TTS is a native
+desktop app, not a browser, so CORS (a browser-only restriction) never
+applies to it; and it very likely runs from a residential home IP, not a
+flagged datacenter range, which is the more probable reason the *server-side*
+attempt got blocked. Neither of those properties is available to a hosted
+web app's own server or its visitors' browsers.
+
+Landed on: paste the decklist as **text**, not a URL - specifically
+Moxfield's own "Copy for Moxfield" export (confirmed the right one over
+"Copy for Arena"/"Copy for MTGO": the Arena export actively warned "Found 39
+illegal cards for Arena" against your real 100-card deck, which would have
+silently produced an incomplete deck). This needs no network request to
+Moxfield anywhere, so it can't hit either wall, and it works for any visitor
+who can copy-paste, not just whoever's running a local tool.
+
+You pasted your real, complete Éowyn deck export (~100 cards, MDFCs, foil
+markers, promo-suffixed collector numbers, and a SIDEBOARD section) to build
+this against - saved as `server/fixtures/moxfield-eowyn-deck.txt`. Building
+the parser (`server/src/importers/moxfieldText.ts`) surfaced one real
+ambiguity worth explaining: **this export format has no `COMMANDER:` header
+at all** - the commander is simply listed first, out of the otherwise-strict
+alphabetical mainboard order. Rather than hardcode "the first line is always
+the commander" (wrong for 2-commander partner/background decks), the parser
+walks backward from the end of the list to find where descending-to-ascending
+order breaks - everything before that break is the commander(s), however many
+there are. Verified this correctly identifies "Éowyn, Shieldmaiden" (not
+"Éowyn, Fearless Knight," which sits correctly in alphabetical order deeper
+in the list) as the sole commander in your real deck. Documented residual
+edge case: a commander whose name would already sort correctly among the
+mainboard is indistinguishable from this algorithm's perspective - rare, not
+hit by any real deck seen so far.
+
+Also handled in the parser: the `*F*` foil marker (stripped - cosmetic, does
+not affect simulation), collector numbers with letter suffixes like `243p`
+(kept as-is, they're part of the real identifier), and MDFCs using `" / "`
+(single slash) as their separator in this export format - notably different
+from the JSON API's `" // "` (double slash), so this needed its own
+front-face extraction rather than reusing `dck.ts`'s existing one for the
+JSON path.
+
+Validated for real, not just unit-tested: generated a `.dck` from the
+complete real Éowyn export and ran it through an actual Forge game against
+one of Forge's precons. All ~100 cards resolved with no load errors -
+including the Lord of the Rings-set cards, the promo-suffix collector
+numbers, and the MDFCs - and the game played to a real conclusion.
+
+Replaced the client-side-fetch plumbing end to end: `web/src/moxfieldClient.ts`
+deleted (confirmed non-functional, CORS can't be worked around from here).
+`NewRunForm.tsx` now has a per-player textarea (plus an optional label,
+since this text format carries no deck name) instead of a URL field.
+`server/src/analyze/startPodFromMoxfieldDecks.ts` renamed to
+`startPodFromDecklistText.ts` and now parses pasted text directly - no
+`raw` JSON, no fetch, nothing async except Forge itself.
+`scripts/dashboard-start-run-smoke-test.sh` rewritten again: since decks
+arrive as plain pasted text, it now feeds the *real* Éowyn export in as all
+4 players and runs a real 1-game Forge batch through the actual
+POST /api/runs -> complete pipeline, end to end, entirely offline. Also
+still covers request validation and a real `"failed"` status (naming all 4)
+for garbage input.
+
+Not yet re-deployed to Render / re-tried by you - that's the next real
+test, same as every other change in this saga: reasoned and validated as
+far as this session can, but the actual "you paste your real deck and it
+runs" moment is still ahead.
+
 ## Phase 5 — deprioritized by you; dropped from active scope
 
 Was going to be blocked anyway (`archidekt.com` is blocked by this session's

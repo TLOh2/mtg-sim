@@ -204,7 +204,6 @@ button.secondary {
   margin: 0;
 }
 
-.deck-url-field,
 .new-run-options label {
   display: flex;
   flex-direction: column;
@@ -213,7 +212,6 @@ button.secondary {
   color: var(--muted);
 }
 
-.deck-url-field input,
 .new-run-options input {
   font-size: 0.9rem;
   padding: 8px 10px;
@@ -221,6 +219,41 @@ button.secondary {
   border-radius: 6px;
   color: var(--text);
   background: var(--bg);
+}
+
+.deck-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deck-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.deck-label-row input {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.deck-input-field textarea {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg);
+  resize: vertical;
 }
 
 .new-run-options {

@@ -19,12 +19,14 @@ dependencies (takes a few minutes; every run after that is fast), then starts
 both servers and opens the dashboard in your browser. Press Ctrl+C in that
 terminal to stop everything cleanly.
 
-Click **+ New run**, paste 4 Moxfield deck URLs (`https://moxfield.com/decks/<id>`,
-one per player), and submit. Your own browser fetches each deck directly from
-Moxfield (not the server - see "A note on how deck import works" below), then
-hands the results off to run. A full batch (20 games by default) can take a
-while; the run appears immediately with a "running" status and the page
-polls until it's done, so it's safe to navigate away and come back later.
+Click **+ New run**. For each player, open their deck on Moxfield, click
+**Export** → **Copy for Moxfield** (not "Copy for Arena"/"Copy for MTGO" -
+those drop cards those formats can't represent), and paste the result into
+that player's box. Submit. See "A note on how deck import works" below for
+why it's a pasted decklist rather than just a URL. A full batch (20 games by
+default) can take a while; the run appears immediately with a "running"
+status and the page polls until it's done, so it's safe to navigate away and
+come back later.
 
 ### Running the two servers by hand
 
@@ -82,24 +84,25 @@ this was built and tested against [Render](https://render.com):
 
 ### A note on how deck import works (and why)
 
-The dashboard's "+ New run" form fetches each of the 4 decks **in your own
-browser**, not on the server, then sends the already-fetched JSON along with
-the run request. This isn't just a design choice - it's a fix for something
-that actually broke on a real deployment: the server's own fetch to
-Moxfield's API got 403'd every time on Render, even after sending
-browser-like headers. That's consistent with TLS/network-level bot
-detection (rejecting a datacenter's request fingerprint, not just checking
-the `User-Agent` string), which no header spoofing fixes. Your own browser
-making the request is the legitimate way around that - it's an actual
-browser, not something impersonating one.
+The dashboard asks you to paste each deck's **decklist text** (Moxfield's
+"Copy for Moxfield" export), not a URL - because nothing that automatically
+fetches a Moxfield deck from a deployed web app actually works:
 
-One thing this depends on that isn't fully proven: Moxfield's API needs to
-respond with CORS headers that allow a *different* site's JavaScript
-(your deployed dashboard's origin, not moxfield.com) to read the response.
-If it doesn't, your browser will block reading the result with a (frustratingly
-non-specific) "failed to fetch" error - check your browser's devtools
-console/network tab for the real reason if that happens. See `PROGRESS.md`
-for where this stands.
+- A server-side fetch (this deployment doing the fetching) got 403'd every
+  time on Render, even with browser-like headers - consistent with
+  TLS/network-level bot detection against datacenter traffic, which no
+  header spoofing fixes.
+- A browser-side fetch (your browser doing the fetching, on the server's
+  behalf) gets blocked by CORS - confirmed directly: Moxfield's API sends no
+  `Access-Control-Allow-Origin` header, so browsers refuse to let a
+  different site's JavaScript read the response. This applies to every
+  visitor equally, not just one browser or one deployment.
+
+Pasting the plain-text export sidesteps both: nothing here makes a network
+request to Moxfield at all. It's a little more manual than pasting a URL,
+but it's the one approach that's actually proven to work, including through
+a real end-to-end Forge game with a real ~100-card deck (see
+`server/fixtures/moxfield-eowyn-deck.txt` / PROGRESS.md).
 
 What to know before relying on it:
 

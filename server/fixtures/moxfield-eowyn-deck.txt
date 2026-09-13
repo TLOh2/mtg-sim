@@ -1,0 +1,123 @@
+1 Éowyn, Shieldmaiden (LTC) 86 *F*
+1 Adarkar Wastes (PDMU) 243p
+1 Adeline, Resplendent Cathar (MID) 312
+1 Adriana, Captain of the Guard (ONC) 114
+1 Akroma's Will (CMR) 3
+1 Arcane Signet (LTC) 273
+1 Austere Command (PLST) MKC-56
+1 Bard, Heir of Girion (HOC) 101
+1 Bard, King of Dale (HOB) 144
+1 Bard's Company (HOB) 210
+1 Bastion Protector (LTC) 162
+1 Battlefield Forge (LTC) 296
+1 Beregond of the Guard (LTC) 9
+1 Blade Historian (STX) 165
+1 Boromir, Warden of the Tower (LTR) 4
+1 Captain Lannery Storm (XLN) 136
+1 Caretaker's Talent (BLB) 6
+1 Cascade Bluffs (TDC) 345
+1 Cathars' Crusade (MB2) 6
+1 Charming Scoundrel (PWOE) 124p
+1 Command Tower (LTC) 301
+1 Coppercoat Vanguard (MAT) 1
+1 Dauntless Bodyguard (PLST) DOM-14
+1 Deserted Beach (WHO) 270
+1 Discerning Financier (WOE) 10
+1 Éowyn, Fearless Knight (LTR) 201
+1 Exotic Orchard (LTC) 307
+1 Fellwar Stone (ONC) 130
+1 Flowering of the White Tree (LTR) 15
+1 Forth Eorlingas! (LTC) 56
+1 Galadriel's Dismissal (LTC) 500
+1 Glacial Fortress (LTC) 315
+1 Haytham Kenway (ACR) 57
+1 Hengegate Pathway / Mistgate Pathway (KHM) 260
+1 Herald of Hoofbeats (MOC) 109
+1 Hero of Precinct One (RNA) 11
+1 Horn of the Mark (LTR) 378
+1 Idol of Oblivion (SCD) 268
+1 Inspiring Veteran (ELD) 194
+3 Island (LTR) 716 *F*
+1 Kitesail Larcenist (LCI) 61
+1 Knight Exemplar (DDG) 14
+1 Knight of the White Orchid (C20) 93
+1 Legion Leadership / Legion Stronghold (MH3) 255
+1 Loran of the Third Path (PBRO) 12p
+1 Lossarnach Captain (LTC) 16
+1 Marshal of Zhalfir (MOM) 246
+1 Mass Appeal (AVR) 66 *F*
+1 Meduseld, Golden Hall of Edoras (LTC) 361
+1 Minas Tirith (LTR) 256
+1 Mother of Runes (PLST) DDO-20
+6 Mountain (LTR) 719 *F*
+1 Mystic Gate (M3C) 359
+1 Needleverge Pathway / Pillarverge Pathway (ZNR) 263
+1 Neyali, Suns' Vanguard (ONC) 2
+1 Oath of Eorl (LTC) 64
+1 Outlaws' Merriment (PLST) ELD-198
+1 Patchwork Banner (BLB) 247
+1 Path of Ancestry (LTC) 322
+1 Path to Exile (LTC) 175
+1 Perilous Landscape (MH3) 223
+7 Plains (LTR) 713 *F*
+1 Prairie Stream (LTC) 324
+1 Radiant Summit (EOC) 43
+1 Raise the Palisade (LTC) 23
+1 Razorgrass Ambush / Razorgrass Field (MH3) 238
+1 Reinforced Ronin (NEO) 158
+1 Riders of Rohan (LTC) 67
+1 Riders of the Mark (LTR) 827
+1 Rugged Prairie (CMM) 1022
+1 Sacred Foundry (GRN) 254
+1 Secluded Courtyard (LTC) 330
+1 Shared Animosity (LTC) 226
+1 Stubborn Denial (KTK) 56
+1 Sunbillow Verge (DFT) 264
+1 Sunstar Expansionist (EOE) 41
+1 Swan Song (EOC) 46
+1 Swords to Plowshares (LTC) 178
+1 Talisman of Conviction (LTC) 285
+1 Talisman of Progress (LTC) 286
+1 Taunt from the Rampart (LTC) 71
+1 Théoden, King of Rohan (LTR) 233
+1 Thraben Doomsayer (DKA) 25
+1 Tocasia's Welcome (BRO) 30
+1 Warleader's Call (MKM) 242
+1 Witch Enchanter / Witch-Blessed Meadow (MH3) 239
+1 Worthy Knight (ELD) 36
+
+SIDEBOARD:
+1 Aragorn, King of Gondor (LTC) 5
+1 Benalish Marshal (DOM) 6
+1 Breath of Fury (C16) 121
+1 By Invitation Only (VOW) 5
+1 Cemetery Protector (VOW) 6
+1 Combat Celebrant (LTC) 212
+1 Cosmogrand Zenith (EOE) 304 *F*
+1 Éomer, King of Rohan (LTC) 52
+1 Erode (SOS) 15
+1 Frontier Warmonger (LTC) 217
+1 Grasp of Fate (WOT) 3
+1 Herald's Horn (LTC) 280
+1 Intangible Virtue (CMM) 31
+1 Keeper of the Accord (CMR) 27
+1 Kindred Discovery (CLB) 81
+1 Loyal Retainers (MSC) 136
+1 Lunar Insight (FDN) 310
+1 Mind Stone (LTC) 282
+1 Negate (AER) 40
+1 Odric, Master Tactician (C20) 96
+1 Paladin Elizabeth Taggerdy (PIP) 114
+1 Pearl Medallion (CMM) 401
+1 Rebuff the Wicked (TSR) 35
+1 Renewed Solidarity (DRC) 23
+1 Starry-Eyed Skyrider (TDM) 25
+1 Sunset Revelry (LTC) 177
+1 Suppressor Skyguard (CLU) 46
+1 Swiftfoot Boots (A25) 234
+1 Teferi's Veil (WTH) 53
+1 The Council of Four (CLB) 419
+1 The Queen of Dale (HOB) 24
+1 Thought Vessel (LTC) 287
+1 Valorous Stance (INR) 48
+1 Westfold Rider (LTR) 37

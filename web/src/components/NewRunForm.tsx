@@ -1,53 +1,42 @@
 import { useState } from "react";
 import { api } from "../api";
-import { fetchMoxfieldDeckClientSide } from "../moxfieldClient";
 
 export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string) => void; onCancel: () => void }) {
-  const [urls, setUrls] = useState(["", "", "", ""]);
+  const [labels, setLabels] = useState(["", "", "", ""]);
+  const [decklists, setDecklists] = useState(["", "", "", ""]);
   const [games, setGames] = useState(20);
   const [clockSeconds, setClockSeconds] = useState(180);
   const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function setUrl(i: number, value: string) {
-    setUrls((prev) => prev.map((u, idx) => (idx === i ? value : u)));
+  function setLabel(i: number, value: string) {
+    setLabels((prev) => prev.map((l, idx) => (idx === i ? value : l)));
+  }
+  function setDecklist(i: number, value: string) {
+    setDecklists((prev) => prev.map((d, idx) => (idx === i ? value : d)));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    const trimmed = urls.map((u) => u.trim());
-    if (trimmed.some((u) => !u)) {
-      setError("All 4 deck URLs are required.");
+    const trimmed = decklists.map((d) => d.trim());
+    if (trimmed.some((d) => !d)) {
+      setError("All 4 decklists are required.");
       return;
     }
 
     setSubmitting(true);
     try {
-      // Fetched here, in your browser, rather than by the server - see
-      // moxfieldClient.ts for why (the server gets blocked; a real browser
-      // making this request doesn't look like a bot in the first place).
-      setProgress("Fetching decks from Moxfield...");
-      const decks = await Promise.all(
-        trimmed.map(async (url, i) => {
-          try {
-            const raw = await fetchMoxfieldDeckClientSide(url);
-            return { url, raw };
-          } catch (err) {
-            throw new Error(`Player ${i + 1} deck (${url}): ${(err as Error).message}`);
-          }
-        }),
-      );
-
-      setProgress("Starting simulation...");
+      const decks = trimmed.map((decklistText, i) => ({
+        label: labels[i].trim() || `Player ${i + 1}`,
+        decklistText,
+      }));
       const { runId } = await api.startRun(decks, games, clockSeconds);
       onStarted(runId);
     } catch (err) {
       setError(String((err as Error).message ?? err));
       setSubmitting(false);
-      setProgress(null);
     }
   }
 
@@ -55,22 +44,32 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
     <form className="new-run-form" onSubmit={handleSubmit}>
       <h3>New run</h3>
       <p className="muted">
-        Paste 4 Moxfield deck URLs (e.g. https://moxfield.com/decks/&lt;id&gt;) to simulate a pod. A full
-        batch can take a while to run - you can navigate away and check back later.
+        On each Moxfield deck's page, open <strong>Export</strong> and click <strong>Copy for Moxfield</strong>{" "}
+        (not "Copy for Arena"/"Copy for MTGO" - those drop cards those formats can't represent). Paste the result
+        below, one per player. A full batch can take a while to run - you can navigate away and check back later.
       </p>
 
-      {urls.map((url, i) => (
-        <label key={i} className="deck-url-field">
-          Player {i + 1}
-          <input
-            type="url"
+      {decklists.map((decklistText, i) => (
+        <div key={i} className="deck-input-field">
+          <label className="deck-label-row">
+            Player {i + 1}
+            <input
+              type="text"
+              placeholder="optional name, e.g. deck title"
+              value={labels[i]}
+              onChange={(e) => setLabel(i, e.target.value)}
+              disabled={submitting}
+            />
+          </label>
+          <textarea
             required
-            placeholder="https://moxfield.com/decks/..."
-            value={url}
-            onChange={(e) => setUrl(i, e.target.value)}
+            rows={5}
+            placeholder={"1 Sol Ring (CMM) 382\n1 Command Tower (LTC) 301\n..."}
+            value={decklistText}
+            onChange={(e) => setDecklist(i, e.target.value)}
             disabled={submitting}
           />
-        </label>
+        </div>
       ))}
 
       <div className="new-run-options">
@@ -99,7 +98,6 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
       </div>
 
       {error && <p className="error">{error}</p>}
-      {progress && !error && <p className="muted">{progress}</p>}
 
       <div className="new-run-actions">
         <button type="submit" disabled={submitting}>
