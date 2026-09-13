@@ -33,7 +33,7 @@ reversible implementation choice, noted for your awareness, not for permission.
 - [x] **Phase 1 — Moxfield import → normalized decklist → `.dck`** — DONE, validated against a real live Moxfield deck (see below)
 - [x] **Phase 2 — Wire pipeline into Forge sim mode (4-deck pod, 20-game batch)** — DONE
 - [x] **Phase 3 — Log parsing + turning-point detection** — DONE
-- [x] **Phase 4 — Results dashboard + game log viewer (web UI)** — DONE
+- [x] **Phase 4 — Results dashboard + game log viewer (web UI)** — DONE, now also supports starting a run from the browser (see below)
 - [ ] **Phase 5 — Archidekt import** — DEPRIORITIZED BY USER (see below); not pursuing further unless asked
 
 ## Phase 0 — done
@@ -172,6 +172,43 @@ any other pod) via `npm run analyze:pod -- <run-id> <deck1.dck> ...
 `scripts/phase4-smoke-test.sh` runs its own small batch, hits all three API
 endpoints against the real persisted result, and builds the web app - a
 faithful "does this actually work" check rather than just a green typecheck.
+
+### Update: starting a run from the dashboard (paste 4 Moxfield URLs)
+
+You asked for a UI where people can post their four decks, rather than
+needing the CLI to kick off a run. Added:
+
+- `POST /api/runs` (`server/src/api/server.ts`): takes `{ deckUrls: string[4],
+  games?, clockSeconds? }`, validates each URL looks like a real Moxfield
+  deck URL (400 otherwise), generates a run id, and fires
+  `startPodFromMoxfieldUrls` (new: `server/src/analyze/startPodFromMoxfieldUrls.ts`)
+  without waiting for it - responds `202` immediately with the run id.
+- That function imports each of the 4 decks (in parallel), converts each to
+  `.dck` in a temp staging directory, then hands off to the same
+  `runAndAnalyzePod` the CLI already used - one pipeline, two entry points.
+- `RunSummary` gained a `status: "running" | "complete" | "failed"` field
+  (plus `error` and `deckUrls`). `runAndAnalyzePod` now writes a `"running"`
+  placeholder immediately (a 20-game batch is not fast) and overwrites it
+  with `"complete"`/`"failed"` when done, so the dashboard has something
+  real to show and poll against the whole time, not just at the end.
+- `web/`: a "+ New run" form (`NewRunForm.tsx`) on the run list posts to the
+  new endpoint and jumps straight to the new run's detail page; both the run
+  list and detail view poll every 4s while anything is `"running"` and show
+  a status badge (running/complete/failed, with the error message on hover
+  for failed runs).
+
+Validated with a new script, `scripts/dashboard-start-run-smoke-test.sh`:
+starts a real API server, confirms a malformed URL is rejected with 400,
+confirms a well-formed request gets a run id back and the run shows up as
+`"running"` in the list *immediately* (before any Moxfield fetch has even
+completed), and confirms that when the (blocked-in-this-session) Moxfield
+fetch actually fails, the run transitions to a real `"failed"` status with
+a readable error message rather than hanging or crashing the server. What
+this can't validate here: an actual successful run from a real Moxfield URL
+end to end, since this session still can't reach moxfield.com - that's the
+same limitation Phase 1 had, and the same fix applies (run it from
+somewhere with normal network access, or paste me the URLs/JSON and I'll
+walk through it with you).
 
 **A real bug worth recording:** the first version of this script hung for
 2+ hours (you caught it - thank you). Root cause, confirmed via `/proc`

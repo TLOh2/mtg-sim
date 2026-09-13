@@ -4,12 +4,10 @@
 //
 // Usage: npm run import:moxfield -- <moxfield-deck-url> [output-path.dck]
 //
-// NOTE: this session's network egress policy blocks moxfield.com entirely
-// (see PROGRESS.md), so this has not been run against a real URL yet. It's
-// written and unit-tested against a fixture (src/importers/moxfield.test.ts)
-// to the extent possible without live access - running this for real, from
-// an environment that can reach moxfield.com, is the actual Phase 1
-// validation still outstanding.
+// The response shape this targets has been confirmed against a real live
+// Moxfield deck (see PROGRESS.md's Phase 1 writeup) - this environment's own
+// network egress still blocks moxfield.com directly, so running this CLI
+// from here will fail to reach the API, but the code itself is validated.
 import { importMoxfieldDeck } from "../importers/moxfield.js";
 import { toDck } from "../convert/dck.js";
 import { writeFileSync } from "node:fs";

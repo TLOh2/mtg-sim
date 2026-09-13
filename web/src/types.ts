@@ -2,9 +2,13 @@
 // as a hand-copied subset rather than a shared package, since web/ and
 // server/ are separate npm packages and this is a small, low-churn surface.
 
+export type RunStatus = "running" | "complete" | "failed";
+
 export interface RunListEntry {
   runId: string;
   createdAt: string;
+  status: RunStatus;
+  error?: string;
   playerNames: string[];
   requestedGames: number;
   completedGames: number;
@@ -20,8 +24,14 @@ export interface GameSummary {
 }
 
 export interface RunDetail extends RunListEntry {
+  deckUrls?: string[];
   deckPaths: string[];
   games: GameSummary[];
+}
+
+export interface StartRunResponse {
+  runId: string;
+  status: RunStatus;
 }
 
 export interface GameEvent {
