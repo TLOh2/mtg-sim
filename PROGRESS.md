@@ -34,7 +34,7 @@ reversible implementation choice, noted for your awareness, not for permission.
 - [x] **Phase 2 — Wire pipeline into Forge sim mode (4-deck pod, 20-game batch)** — DONE
 - [x] **Phase 3 — Log parsing + turning-point detection** — DONE
 - [x] **Phase 4 — Results dashboard + game log viewer (web UI)** — DONE
-- [ ] **Phase 5 — Archidekt import** — BLOCKED (see below), not started for real
+- [ ] **Phase 5 — Archidekt import** — DEPRIORITIZED BY USER (see below); not pursuing further unless asked
 
 ## Phase 0 — done
 
@@ -189,24 +189,17 @@ script's, and by having cleanup kill whatever's actually bound to the port
 the fix: completed in about a minute, passed, and left zero processes or open
 ports behind - confirmed directly, not assumed.
 
-## Phase 5 — blocked, deliberately not guessed at
+## Phase 5 — deprioritized by you; dropped from active scope
 
-Same network restriction as Phase 1 (`archidekt.com` is blocked by this
-session's egress policy - re-confirmed directly, not assumed). The
-difference from Phase 1: the task's own framing already flagged Archidekt's
-export shape as an open question and said explicitly to resolve it
-empirically rather than guess. I could reasonably use my own judgment to
-write a best-effort Moxfield importer against community documentation
-(Phase 1), but writing speculative Archidekt-parsing code here would be
-guessing at exactly the thing I was told not to guess at. So instead:
-`server/src/importers/archidekt.ts` is a stub that explains why and throws
-if called - not a real importer.
+Was going to be blocked anyway (`archidekt.com` is blocked by this session's
+network policy, same as Moxfield, and the spec explicitly said not to guess
+its export shape - see the stub at `server/src/importers/archidekt.ts` and
+the reasoning that was here before). Moot now: you confirmed Moxfield is what
+you actually use, so this isn't worth spending more effort on. Leaving the
+stub in place (it's harmless and cheap to finish later if you ever do want
+Archidekt support) but not pursuing it further unless you ask.
 
-**What I'd like you to do:** send me one real Archidekt deck URL, or a raw
-copy of what `GET` on its deck API/export endpoint returns for one deck (open
-it in a browser's network tab, or `curl` it yourself), or widen this
-environment's network policy to allow `archidekt.com`. Any of those unblocks
-writing the real importer the same way Phase 1's was built.
+Redirecting that effort at Moxfield instead - see the ask right below.
 
 ## Decisions / assumptions made along the way
 

@@ -61,7 +61,7 @@
     },
     "archidekt": {
       "phase": 5,
-      "status": "OPEN QUESTION (per original task framing) - exact export shape not assumed here; Phase 5 must fetch a real Archidekt deck URL, inspect the actual response, and document findings before writing the importer",
+      "status": "DEPRIORITIZED BY USER - user confirmed Moxfield is their actual deck source; Archidekt import is out of scope until asked for again. See PROGRESS.md.",
       "input_shape_expected": "an Archidekt deck URL, e.g. https://archidekt.com/decks/<id>",
       "do_not_guess": true
     }
@@ -223,6 +223,6 @@
     { "phase": 2, "name": "Pipeline wired into Forge sim mode", "done_when": "one real 4-deck pod runs a 20-game batch and yields structured per-game results" },
     { "phase": 3, "name": "Log parsing + turning-point detection", "done_when": "a batch's games are parsed into structured events with turning points flagged, on real (not fixture) logs" },
     { "phase": 4, "name": "Results dashboard + game log viewer", "done_when": "a batch's aggregate results and an individual game's log are viewable in a browser" },
-    { "phase": 5, "name": "Archidekt import", "done_when": "a real Archidekt deck URL converts to a valid .dck, with the export-shape investigation documented" }
+    { "phase": 5, "name": "Archidekt import", "done_when": "a real Archidekt deck URL converts to a valid .dck, with the export-shape investigation documented", "status": "deprioritized by user - Moxfield is their actual source; revisit only if asked" }
   ]
 }
