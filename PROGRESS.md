@@ -142,6 +142,14 @@ Tested against a real captured 4-player game (spliced from Phase 0's manual
 testing) plus small synthetic snippets for signal-specific edge cases the
 real capture didn't happen to contain (20 tests total in `server/`).
 
+Also sanity-checked against the real 20-game batch (see Phase 2/4): 292
+turning points total across 20 games, breaking down as 162
+`commander_cast_or_recast`, 64 `large_life_swing`, 24 `lethal_combat`, 17
+`board_wipe`, 13 `player_elimination`, 11 `combo_loop_detected`, 1
+`mass_land_destruction`, 0 `key_counterspell`. All plausible for 20 games of
+4 precons repeatedly casting/recasting their commanders and grinding each
+other down - nothing jumped out as an obviously-wrong heuristic on real data.
+
 ## Phase 4 — done
 
 `server/src/analyze/runAndAnalyzePod.ts` ties simulate -> parse -> analyze
@@ -153,10 +161,16 @@ Vite + React dashboard: a run list with per-deck win rates, a run detail view
 timeline with turning points highlighted inline).
 
 Run it yourself: `cd server && npm run api` (port 4000), then
-`cd web && npm run dev` and open the printed localhost URL. Real data to look
-at: `data/runs/real-4p-pod.json` (20-game batch, Forge's own Commander
-precons ×4) - generate more via `npm run analyze:pod -- <run-id> <deck1.dck>
-... <deck4.dck> [games] [clockSeconds]` in `server/`.
+`cd web && npm run dev` and open the printed localhost URL.
+
+Real data already generated (not committed - `data/runs/*` is gitignored,
+since it's regenerable output, not source; one 20-game run's JSON came out to
+~8.7MB, which felt like the wrong thing to put in git history): a real
+20-game batch of Forge's own Commander precons ×4 ran to completion -
+20/20 games, win split Red 2 / Blue 3 / Black 5 / Green 10. Regenerate it (or
+any other pod) via `npm run analyze:pod -- <run-id> <deck1.dck> ...
+<deck4.dck> [games] [clockSeconds]` in `server/` - it writes
+`data/runs/<run-id>.json` for the dashboard to pick up.
 
 `scripts/phase4-smoke-test.sh` runs its own small batch, hits all three API
 endpoints against the real persisted result, and builds the web app - a

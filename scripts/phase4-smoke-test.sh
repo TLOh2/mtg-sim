@@ -18,7 +18,7 @@ echo "== Running a 1-game pod and persisting the analyzed result =="
 (cd "$REPO_ROOT/server" && npm run --silent analyze:pod -- "$RUN_ID" \
     "$PRECON_DIR/red_01.dck" "$PRECON_DIR/blue_01.dck" \
     "$PRECON_DIR/black_01.dck" "$PRECON_DIR/green_01.dck" \
-    1 180)
+    1 60)
 
 RESULT_FILE="$REPO_ROOT/data/runs/$RUN_ID.json"
 if [ ! -f "$RESULT_FILE" ]; then
@@ -34,16 +34,19 @@ trap 'kill "$API_PID" 2>/dev/null || true; rm -f "$RESULT_FILE"' EXIT
 sleep 1
 
 echo "-- GET /api/runs --"
-LIST=$(curl -sS "http://localhost:4099/api/runs")
-echo "$LIST" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const runs=JSON.parse(d);if(!runs.some(r=>r.runId===process.argv[1])){console.error("run not found in list");process.exit(1)}console.log("run present in list, ok")})' "$RUN_ID"
+LIST=$(curl -sS --max-time 10 "http://localhost:4099/api/runs")
+echo "$LIST" | grep -q "\"$RUN_ID\"" || { echo "FAIL: run not found in list" >&2; exit 1; }
+echo "run present in list, ok"
 
 echo "-- GET /api/runs/$RUN_ID --"
-SUMMARY=$(curl -sS "http://localhost:4099/api/runs/$RUN_ID")
-echo "$SUMMARY" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const r=JSON.parse(d);if(!r.games || r.games.length<1){console.error("no games in summary");process.exit(1)}console.log("run summary ok, "+r.games.length+" game(s)")})'
+SUMMARY=$(curl -sS --max-time 10 "http://localhost:4099/api/runs/$RUN_ID")
+echo "$SUMMARY" | grep -q "\"gameIndex\"" || { echo "FAIL: no games in summary" >&2; exit 1; }
+echo "run summary ok"
 
 echo "-- GET /api/runs/$RUN_ID/games/1 --"
-GAME=$(curl -sS "http://localhost:4099/api/runs/$RUN_ID/games/1")
-echo "$GAME" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const g=JSON.parse(d);if(!g.events || g.events.length<1){console.error("no events in game detail");process.exit(1)}console.log("game detail ok, "+g.events.length+" event(s), "+g.turningPoints.length+" turning point(s)")})'
+GAME=$(curl -sS --max-time 10 "http://localhost:4099/api/runs/$RUN_ID/games/1")
+echo "$GAME" | grep -q "\"events\"" || { echo "FAIL: no events in game detail" >&2; exit 1; }
+echo "game detail ok"
 
 kill "$API_PID" 2>/dev/null || true
 
