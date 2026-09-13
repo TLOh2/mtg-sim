@@ -1,0 +1,49 @@
+{
+  "id": "fixture-deck-1",
+  "name": "Fixture: Muldrotha Value Engine",
+  "format": "commander",
+  "boards": {
+    "commanders": {
+      "count": 1,
+      "cards": {
+        "c1": {
+          "quantity": 1,
+          "card": { "name": "Muldrotha, the Gravetide", "set": "dom", "cn": "205" }
+        }
+      }
+    },
+    "mainboard": {
+      "count": 6,
+      "cards": {
+        "m1": {
+          "quantity": 1,
+          "card": { "name": "Sol Ring", "set": "cmm", "cn": "382" }
+        },
+        "m2": {
+          "quantity": 1,
+          "card": { "name": "Command Tower", "set": "eoc", "cn": "1" }
+        },
+        "m3": {
+          "quantity": 1,
+          "card": { "name": "Eternal Witness" }
+        },
+        "m4": {
+          "quantity": 1,
+          "card": { "name": "Reclamation Sage", "set": "c19", "cn": "22" }
+        },
+        "m5": {
+          "quantity": 34,
+          "card": { "name": "Forest" }
+        },
+        "m6": {
+          "quantity": 1,
+          "card": { "name": "Rampant Growth" }
+        }
+      }
+    },
+    "sideboard": {
+      "count": 0,
+      "cards": {}
+    }
+  }
+}

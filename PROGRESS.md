@@ -30,7 +30,7 @@ reversible implementation choice, noted for your awareness, not for permission.
 ## Status by phase
 
 - [x] **Phase 0 — Forge headless build + CLI sim smoke test** — DONE
-- [ ] Phase 1 — Moxfield import → normalized decklist → `.dck`
+- [~] **Phase 1 — Moxfield import → normalized decklist → `.dck`** — CODE DONE, live validation blocked (see below)
 - [ ] Phase 2 — Wire pipeline into Forge sim mode (4-deck pod, 20-game batch)
 - [ ] Phase 3 — Log parsing + turning-point detection
 - [ ] Phase 4 — Results dashboard + game log viewer (web UI)
@@ -62,6 +62,49 @@ tag `forge-2.0.14-392-g61bc0b600f1`) is vendored as a git submodule at
 - Run `bash scripts/phase0-smoke-test.sh` any time to re-verify this phase
   still works (e.g. after pulling a newer submodule commit).
 
+## Phase 1 — code done; live validation blocked by network policy
+
+**Blocker (flagging per instructions, not stopping for it):** this session's
+outbound network egress policy blocks `moxfield.com` (and, spot-checked,
+`archidekt.com`, `api.scryfall.com`, and even `example.com`) entirely - both
+plain `curl` and the WebFetch tool get a hard `EGRESS_BLOCKED`/403 from the
+organization's egress proxy. GitHub and the npm registry are allowed (that's
+how `engine/forge` and `server/node_modules` got here), but general web
+access is not. This is an environment/org policy setting, not something in
+my control - see the "Environment configuration" note about network policy
+in this session's system context. **I could not run the literal instruction
+"validate against a couple of real Moxfield deck URLs."**
+
+What I did instead, to make real (not fake) progress anyway:
+- Built `server/src/importers/moxfield.ts` against the best available
+  community-documented understanding of Moxfield's unofficial deck JSON API
+  (`api2.moxfield.com/v3/decks/all/{publicId}`), written defensively (accepts
+  a couple of known field-name variants for set code / collector number).
+  **This exact shape is unverified against a live response.**
+  It's plausible but should be treated as a draft until someone runs it for
+  real.
+- Wrote `server/fixtures/moxfield-commander-sample.json`, a hand-built
+  fixture in that shape, and unit-tested normalization + `.dck` conversion
+  against it (`server/src/importers/moxfield.test.ts` - 4 passing tests).
+- Went one step further than a unit test alone: `scripts/phase1-smoke-test.sh`
+  takes the fixture all the way through to a **real Forge game** - generates
+  a `.dck` from it and hands it to Forge's sim mode alongside a real precon.
+  Forge loaded every card (including bare name-only fallback lines for cards
+  with no set/collector-number in the fixture) and played a complete game.
+  This validates the `.dck` output format and Forge's card-name resolution
+  for real; it does not and cannot validate that Moxfield's actual API
+  matches what `moxfield.ts` expects.
+
+**What I'd like you to do:** either (a) run
+`cd server && npm run import:moxfield -- <a real Moxfield deck URL>` from
+somewhere with normal internet access and tell me what breaks (most likely
+culprit if something does: the exact `boards.mainboard.cards[key].card`
+field names - `set` vs `set_code`, `cn` vs `collector_number` - easy to patch
+once I see a real response), or (b) if this environment's network policy can
+be widened to allow `moxfield.com`, I can run that validation myself next
+session. Either way this is the one open item blocking Phase 1 from being
+fully "done" rather than "done modulo live validation."
+
 ## Decisions / assumptions made along the way
 
 - Reconstructed `PRD.md`/`spec.json` from scratch (see warning above).
@@ -83,6 +126,20 @@ tag `forge-2.0.14-392-g61bc0b600f1`) is vendored as a git submodule at
   those rather than hand-writing fake ones, since they're guaranteed
   well-formed and exercise the real card database.
 
-## Blockers (one-way-door items — none yet)
+- Server package (`server/`): Node 22 + TypeScript, ESM, native `fetch`, no
+  extra runtime deps yet. Tests via Node's built-in `node:test` + `tsx`
+  (no vitest/jest) to keep the dependency footprint minimal for now - revisit
+  if test needs grow past what that comfortably covers.
+- `.dck` card-line resolution strategy: emit the full `name|SET|CN` form when
+  the source deck gives us both; otherwise fall back to a bare `name` line.
+  Forge's own deck-line parser (`DeckRecognizer`) accepts both and resolves
+  the bare form to *some* legal printing by name - confirmed by feeding a
+  fixture with both line shapes through a real Forge game (see
+  `scripts/phase1-smoke-test.sh`). This avoids needing to duplicate Forge's
+  ~34k-card index in the Node pipeline just to validate printings up front.
 
-_(none — will appear here immediately if one comes up)_
+## Blockers (one-way-door items)
+
+- **Network egress to Moxfield/Archidekt is blocked in this session** (see
+  "Phase 1" above for full detail). Not a permission question, just flagging
+  it since it's the one thing actually outside my control right now.
