@@ -1,0 +1,103 @@
+Simulation mode
+Ai(1)-Starter Commander - Red vs Ai(2)-Starter Commander - Blue vs Ai(3)-Starter Commander - Black vs Ai(4)-Starter Commander - Green - 2 games of Commander
+Turn: Turn 2 (Ai(1)-Starter Commander - Red)
+Phase: Ai(1)-Starter Commander - Red's Untap step
+Phase: Ai(1)-Starter Commander - Red's Upkeep step
+Phase: Ai(1)-Starter Commander - Red's Draw step
+Phase: Ai(1)-Starter Commander - Red's Main phase, precombat
+Land: Ai(1)-Starter Commander - Red played Mountain (76)
+Phase: Ai(1)-Starter Commander - Red's Beginning of Combat Step
+Phase: Ai(1)-Starter Commander - Red's Declare Attackers Step
+Phase: Ai(1)-Starter Commander - Red's Declare Blockers Step
+Phase: Ai(1)-Starter Commander - Red's First Strike Damage Step
+Phase: Ai(1)-Starter Commander - Red's Combat Damage Step
+Phase: Ai(1)-Starter Commander - Red's End of Combat Step
+Phase: Ai(1)-Starter Commander - Red's Main phase, postcombat
+Mana: Mountain (76) - {T}: Add {R}.
+Add To Stack: Ai(1)-Starter Commander - Red cast Goblin Bushwhacker
+Resolve Stack: Goblin Bushwhacker - Creature 1 / 1
+Phase: Ai(1)-Starter Commander - Red's End step
+Phase: Ai(1)-Starter Commander - Red's Cleanup step
+Turn: Turn 3 (Ai(2)-Starter Commander - Blue)
+Phase: Ai(2)-Starter Commander - Blue's Untap step
+Phase: Ai(2)-Starter Commander - Blue's Upkeep step
+Phase: Ai(2)-Starter Commander - Blue's Draw step
+Phase: Ai(2)-Starter Commander - Blue's Main phase, precombat
+Land: Ai(2)-Starter Commander - Blue played Island (176)
+Turn: Turn 59 (Ai(2)-Starter Commander - Blue)
+Phase: Ai(2)-Starter Commander - Blue's Untap step
+Phase: Ai(2)-Starter Commander - Blue's Upkeep step
+Phase: Ai(2)-Starter Commander - Blue's Draw step
+Phase: Ai(2)-Starter Commander - Blue's Main phase, precombat
+Phase: Ai(2)-Starter Commander - Blue's Beginning of Combat Step
+Phase: Ai(2)-Starter Commander - Blue's Declare Attackers Step
+Phase: Ai(2)-Starter Commander - Blue's Declare Blockers Step
+Phase: Ai(2)-Starter Commander - Blue's First Strike Damage Step
+Phase: Ai(2)-Starter Commander - Blue's Combat Damage Step
+Phase: Ai(2)-Starter Commander - Blue's End of Combat Step
+Phase: Ai(2)-Starter Commander - Blue's Main phase, postcombat
+Mana: Thought Vessel (198) - {T}: Add {C}.
+Mana: Island (176) - {T}: Add {U}.
+Mana: Island (169) - {T}: Add {U}.
+Add To Stack: Ai(2)-Starter Commander - Blue cast Manalith
+Resolve Stack: Manalith
+Phase: Ai(2)-Starter Commander - Blue's End step
+Mana: Swamp (224) - {T}: Add {B}.
+Mana: Swamp (244) - {T}: Add {B}.
+Add To Stack: Ai(3)-Starter Commander - Black activated Tymaret, Chosen from Death targeting [Foul Watcher (200), Spectral Sailor (109)]
+Life: Life: Ai(3)-Starter Commander - Black 40 > 42
+Resolve Stack: Tymaret, Chosen from Death (302) - Exile up to two target cards from graveyards. You gain 1 life for each creature card exiled this way. (Targeting: Foul Watcher (200) and Spectral Sailor (109))
+Phase: Ai(2)-Starter Commander - Blue's Cleanup step
+Turn: Turn 60 (Ai(3)-Starter Commander - Black)
+Phase: Ai(3)-Starter Commander - Black's Untap step
+Phase: Ai(3)-Starter Commander - Black's Upkeep step
+Phase: Ai(3)-Starter Commander - Black's Draw step
+Phase: Ai(3)-Starter Commander - Black's Main phase, precombat
+Mana: Swamp (255) - {T}: Add {B}.
+Mana: Thought Vessel (300) - {T}: Add {C}.
+Add To Stack: Ai(3)-Starter Commander - Black cast Blood Artist
+Resolve Stack: Blood Artist - Creature 0 / 1
+Phase: Ai(3)-Starter Commander - Black's Beginning of Combat Step
+Phase: Ai(3)-Starter Commander - Black's Declare Attackers Step
+Combat: Ai(3)-Starter Commander - Black assigned Arbiter of Woe (293), Gray Merchant of Asphodel (212), Vindictive Vampire (217), Tymaret, Chosen from Death (302), Phyrexian Rager (211), Graveshifter (275) and Burglar Rat (260) to attack Ai(2)-Starter Commander - Blue.
+Phase: Ai(3)-Starter Commander - Black's Declare Blockers Step
+Combat: Ai(2)-Starter Commander - Blue assigned Animating Faerie (136) to block Arbiter of Woe (293).
+Ai(2)-Starter Commander - Blue assigned Callaphe, Beloved of the Sea (201) to block Gray Merchant of Asphodel (212).
+Ai(2)-Starter Commander - Blue didn't block Vindictive Vampire (217).
+Ai(2)-Starter Commander - Blue assigned Boreal Elemental (187) to block Tymaret, Chosen from Death (302).
+Ai(2)-Starter Commander - Blue didn't block Phyrexian Rager (211).
+Ai(2)-Starter Commander - Blue didn't block Graveshifter (275).
+Ai(2)-Starter Commander - Blue didn't block Burglar Rat (260).
+Phase: Ai(3)-Starter Commander - Black's First Strike Damage Step
+Phase: Ai(3)-Starter Commander - Black's Combat Damage Step
+Damage: Arbiter of Woe (293) deals 5 damage to Animating Faerie (136).
+Damage: Gray Merchant of Asphodel (212) deals 2 damage to Callaphe, Beloved of the Sea (201).
+Damage: Vindictive Vampire (217) deals 2 combat damage to Ai(2)-Starter Commander - Blue.
+Damage: Tymaret, Chosen from Death (302) deals 2 damage to Boreal Elemental (187).
+Damage: Phyrexian Rager (211) deals 2 combat damage to Ai(2)-Starter Commander - Blue.
+Damage: Graveshifter (275) deals 2 combat damage to Ai(2)-Starter Commander - Blue.
+Damage: Burglar Rat (260) deals 1 combat damage to Ai(2)-Starter Commander - Blue.
+Damage: Animating Faerie (136) deals 2 damage to Arbiter of Woe (293).
+Damage: Boreal Elemental (187) deals 3 damage to Tymaret, Chosen from Death (302).
+Damage: Callaphe, Beloved of the Sea (201) deals 5 damage to Gray Merchant of Asphodel (212).
+Life: Life: Ai(2)-Starter Commander - Blue 8 > 1
+Zone Change: Gray Merchant of Asphodel (212) was put into Graveyard from Battlefield.
+Zone Change: Animating Faerie (136) was put into Graveyard from Battlefield.
+Add To Stack: Ai(3)-Starter Commander - Black triggered Vindictive Vampire
+Add To Stack: Ai(3)-Starter Commander - Black triggered Blood Artist targeting [Ai(2)-Starter Commander - Blue]
+Add To Stack: Ai(3)-Starter Commander - Black triggered Blood Artist targeting [Ai(2)-Starter Commander - Blue]
+Life: Life: Ai(2)-Starter Commander - Blue 1 > 0
+Life: Life: Ai(3)-Starter Commander - Black 42 > 43
+Resolve Stack: Whenever Blood Artist or another creature dies, target player loses 1 life and you gain 1 life. (Targeting: [[Ai(2)-Starter Commander - Blue]]) [Zone Changer: Animating Faerie (136)]
+Player Control: Ai(1)-Starter Commander - Red has restored control over themself
+Player Control: Ai(2)-Starter Commander - Blue has restored control over themself
+Player Control: Ai(3)-Starter Commander - Black has restored control over themself
+Player Control: Ai(4)-Starter Commander - Green has restored control over themself
+Game Outcome: Turn 30
+Game Outcome: Ai(1)-Starter Commander - Red has lost because life total reached 0
+Game Outcome: Ai(2)-Starter Commander - Blue has lost because life total reached 0
+Game Outcome: Ai(3)-Starter Commander - Black has won because all opponents have lost
+Game Outcome: Ai(4)-Starter Commander - Green has lost because life total reached 0
+Match Result: Ai(1)-Starter Commander - Red: 0 Ai(2)-Starter Commander - Blue: 0 Ai(3)-Starter Commander - Black: 1 Ai(4)-Starter Commander - Green: 0
+
+Game Result: Game 1 ended in 124286 ms. Ai(3)-Starter Commander - Black has won!
