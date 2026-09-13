@@ -31,10 +31,10 @@ reversible implementation choice, noted for your awareness, not for permission.
 
 - [x] **Phase 0 — Forge headless build + CLI sim smoke test** — DONE
 - [~] **Phase 1 — Moxfield import → normalized decklist → `.dck`** — CODE DONE, live validation blocked (see below)
-- [ ] Phase 2 — Wire pipeline into Forge sim mode (4-deck pod, 20-game batch)
-- [ ] Phase 3 — Log parsing + turning-point detection
-- [ ] Phase 4 — Results dashboard + game log viewer (web UI)
-- [ ] Phase 5 — Archidekt import
+- [x] **Phase 2 — Wire pipeline into Forge sim mode (4-deck pod, 20-game batch)** — DONE
+- [x] **Phase 3 — Log parsing + turning-point detection** — DONE
+- [x] **Phase 4 — Results dashboard + game log viewer (web UI)** — DONE
+- [ ] **Phase 5 — Archidekt import** — BLOCKED (see below), not started for real
 
 ## Phase 0 — done
 
@@ -104,6 +104,82 @@ once I see a real response), or (b) if this environment's network policy can
 be widened to allow `moxfield.com`, I can run that validation myself next
 session. Either way this is the one open item blocking Phase 1 from being
 fully "done" rather than "done modulo live validation."
+
+## Phase 2 — done
+
+`server/src/simulate/forgeRunner.ts` + `parseGameResults.ts`: runs a batch
+through `engine/run-sim.sh` and splits Forge's stdout into structured
+per-game results (winner, draw flag, duration, raw log) on Forge's own
+"Game Result: ..." lines. Validated for real: a full 4-deck pod (Forge's own
+Commander precons), 20 games, `-c 120`, ran to completion - see
+`data/runs/real-4p-pod.json` for the actual persisted output (also what
+Phase 3/4 below validate against). `scripts/phase2-smoke-test.sh` is a fast
+(2-game) repeatable version of the same check.
+
+## Phase 3 — done
+
+`server/src/parse/parseGameLog.ts` classifies each log line against Forge's
+own `GameLogEntryType` captions (the authoritative list - see
+`engine/forge/forge-game/.../GameLogEntryType.java`), tracks the running turn
+number, and tags which known players a line involves by exact roster-name
+matching (more reliable than regexing a name out of free text, since deck
+names can contain almost anything).
+
+`server/src/parse/turningPoints.ts` implements 9 of spec.json's 10 seed
+signals: `large_life_swing`, `player_elimination`, `lethal_combat`,
+`board_wipe`, `mass_land_destruction`, `extra_turn`, `combo_loop_detected`,
+`key_counterspell`, `commander_cast_or_recast`. **`big_card_draw` is not
+implemented** - Forge's `GameLogEntryType` enum has no draw-related entry at
+all (confirmed by reading `forge-game`'s `Player.java`: the only similar
+logged event is `DISCARD`). Individual card draws simply are not recorded in
+Forge's log output, with or without verbose logging, so this signal can't be
+detected without instrumenting the engine itself. Also worth flagging:
+`key_counterspell` had to drop spec.json's ">= 5 mana value" threshold (no
+CMC data in text logs) and flags every resolved counter instead - a
+simplification, not a bug.
+
+Tested against a real captured 4-player game (spliced from Phase 0's manual
+testing) plus small synthetic snippets for signal-specific edge cases the
+real capture didn't happen to contain (20 tests total in `server/`).
+
+## Phase 4 — done
+
+`server/src/analyze/runAndAnalyzePod.ts` ties simulate -> parse -> analyze
+into one pipeline and persists each run to `data/runs/<run-id>.json`.
+`server/src/api/server.ts` is a small dependency-free HTTP API reading that
+directory (run list, one run's summary, one game's full detail). `web/` is a
+Vite + React dashboard: a run list with per-deck win rates, a run detail view
+(games table with turning-point counts), and a game log view (the full event
+timeline with turning points highlighted inline).
+
+Run it yourself: `cd server && npm run api` (port 4000), then
+`cd web && npm run dev` and open the printed localhost URL. Real data to look
+at: `data/runs/real-4p-pod.json` (20-game batch, Forge's own Commander
+precons ×4) - generate more via `npm run analyze:pod -- <run-id> <deck1.dck>
+... <deck4.dck> [games] [clockSeconds]` in `server/`.
+
+`scripts/phase4-smoke-test.sh` runs its own small batch, hits all three API
+endpoints against the real persisted result, and builds the web app - a
+faithful "does this actually work" check rather than just a green typecheck.
+
+## Phase 5 — blocked, deliberately not guessed at
+
+Same network restriction as Phase 1 (`archidekt.com` is blocked by this
+session's egress policy - re-confirmed directly, not assumed). The
+difference from Phase 1: the task's own framing already flagged Archidekt's
+export shape as an open question and said explicitly to resolve it
+empirically rather than guess. I could reasonably use my own judgment to
+write a best-effort Moxfield importer against community documentation
+(Phase 1), but writing speculative Archidekt-parsing code here would be
+guessing at exactly the thing I was told not to guess at. So instead:
+`server/src/importers/archidekt.ts` is a stub that explains why and throws
+if called - not a real importer.
+
+**What I'd like you to do:** send me one real Archidekt deck URL, or a raw
+copy of what `GET` on its deck API/export endpoint returns for one deck (open
+it in a browser's network tab, or `curl` it yourself), or widen this
+environment's network policy to allow `archidekt.com`. Any of those unblocks
+writing the real importer the same way Phase 1's was built.
 
 ## Decisions / assumptions made along the way
 
