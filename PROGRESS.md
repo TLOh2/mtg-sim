@@ -173,6 +173,19 @@ any other pod) via `npm run analyze:pod -- <run-id> <deck1.dck> ...
 endpoints against the real persisted result, and builds the web app - a
 faithful "does this actually work" check rather than just a green typecheck.
 
+**A real bug worth recording:** the first version of this script hung for
+2+ hours (you caught it - thank you). Root cause, confirmed via `/proc`
+inspection of the stuck process: the background API server inherited this
+script's own stdout, so when the script ran under a pipe, the server held
+that pipe's write end open indefinitely, and `kill "$API_PID"` only killed
+the immediate subshell, not the actual node process npx/tsx forked
+underneath it, which got reparented to init and just sat there. Fixed by
+redirecting the server's output to a log file instead of inheriting the
+script's, and by having cleanup kill whatever's actually bound to the port
+(via `lsof`) rather than trust the originally-captured PID. Re-ran it after
+the fix: completed in about a minute, passed, and left zero processes or open
+ports behind - confirmed directly, not assumed.
+
 ### Update: starting a run from the dashboard (paste 4 Moxfield URLs)
 
 You asked for a UI where people can post their four decks, rather than
@@ -234,18 +247,53 @@ testing and it left orphans, corrected by signaling the actual script
 process), and confirmed both ports were completely free afterward with no
 leftover `tsx`/`vite` processes.
 
-**A real bug worth recording:** the first version of this script hung for
-2+ hours (you caught it - thank you). Root cause, confirmed via `/proc`
-inspection of the stuck process: the background API server inherited this
-script's own stdout, so when the script ran under a pipe, the server held
-that pipe's write end open indefinitely, and `kill "$API_PID"` only killed
-the immediate subshell, not the actual node process npx/tsx forked
-underneath it, which got reparented to init and just sat there. Fixed by
-redirecting the server's output to a log file instead of inheriting the
-script's, and by having cleanup kill whatever's actually bound to the port
-(via `lsof`) rather than trust the originally-captured PID. Re-ran it after
-the fix: completed in about a minute, passed, and left zero processes or open
-ports behind - confirmed directly, not assumed.
+### Update: deployable to Render (public URL, works from a phone)
+
+You then asked specifically about using this from an iPhone. Local-only
+doesn't help there unless you leave a computer running on the same WiFi, so
+I asked which you wanted; you chose real hosting, reachable from anywhere,
+and named Render specifically.
+
+What "deployable" required, beyond what already existed:
+
+- **One process instead of two.** Added static-file serving to
+  `server/src/api/server.ts` (`serveStatic`, with a normalize-and-prefix-check
+  against path traversal - verified by actually attempting `../../../etc/passwd`
+  and `%2e%2e/...`-encoded variants against a running server; both just fall
+  back to `index.html`, never leak real files) so one server serves the built
+  dashboard (`web/dist`) *and* the `/api/*` routes. Render (and most simple
+  hosts) wants one deployable unit, not "two servers + a dev proxy."
+- **`Dockerfile`** (repo root): `node:22-bookworm` + `openjdk-17-jdk-headless`
+  + `maven` (matches spec.json's stated target Java version, and it's
+  Debian bookworm's default package - no extra apt repos needed). Clones
+  Forge directly from GitHub at the exact commit in `engine/forge-pin.txt`
+  inside the build, rather than depending on however the deploy platform
+  handles (or doesn't handle) the `engine/forge` git submodule - sidesteps
+  that question entirely instead of guessing at Render's current submodule
+  support. Single-stage build (not multi-stage), since the JVM + Forge's
+  compiled classes + Maven's local repo all need to still be present at
+  *runtime*, not just at build time (simulations spawn `java` per batch, on
+  demand).
+- **`render.yaml`** (Blueprint spec): one web service, Docker runtime,
+  `starter` plan (flagged in a comment: free tier is unlikely to survive
+  building a real Maven project and then running a JVM per request), health
+  check on `/api/runs`.
+- **`.dockerignore`**: excludes `engine/forge` explicitly, since the
+  Dockerfile clones it fresh - never want a possibly-stale local checkout
+  from the build context shadowing that.
+
+**What I could not validate:** this session has no Docker daemon available
+(`docker info` fails - no `/var/run/docker.sock`) and no network path to
+Render or Docker Hub, so I could not actually build this image or deploy
+it. Everything above is as carefully reasoned through as I could manage
+(traced every path the server/Forge scripts resolve at runtime against
+where the Dockerfile puts things, and confirmed each piece individually
+against what's already proven working in this repo - JDK 17/21 both build
+Forge fine per Phase 0, the static file serving was tested against a real
+locally-built `web/dist`) but **the actual "push to Render and open it on
+your phone" step is unproven**. Please try the deploy and tell me exactly
+what breaks, if anything - same pattern as the MDFC bug: real data/real
+environments catch things reasoning alone can't.
 
 ## Phase 5 — deprioritized by you; dropped from active scope
 

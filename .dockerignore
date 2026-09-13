@@ -1,0 +1,11 @@
+.git
+# engine/forge is fetched fresh in the Dockerfile at the pinned commit,
+# regardless of whether this build context's own submodule checkout is
+# populated - don't ship a possibly-stale local copy into the image.
+engine/forge
+engine/.runtime-classpath.txt
+server/node_modules
+web/node_modules
+web/dist
+data/runs
+*.log

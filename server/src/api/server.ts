@@ -1,11 +1,18 @@
 #!/usr/bin/env node
-// Minimal HTTP API for the Phase 4 dashboard: reads persisted run summaries
-// from data/runs/*.json (written by analyze-pod.ts / runAndAnalyzePod.ts) and
+// HTTP API for the dashboard: reads persisted run summaries from
+// data/runs/*.json (written by analyze-pod.ts / runAndAnalyzePod.ts) and
 // serves them as JSON. No framework, no database - this is a single-user
-// local tool reading flat files, per spec.json#tech_stack's rationale.
+// tool reading flat files, per spec.json#tech_stack's rationale.
+//
+// Also serves the dashboard's own built static assets (web/dist) for any
+// non-/api path, so this one process is everything a deployment (e.g.
+// Render) needs to run - no separate static host or dev-server proxy. In
+// local development, web/dist won't exist (you're running `vite dev`
+// against this API instead), so that branch just 404s harmlessly.
 import { createServer } from "node:http";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { RUNS_DIR } from "../analyze/runAndAnalyzePod.js";
 import { startPodFromMoxfieldUrls } from "../analyze/startPodFromMoxfieldUrls.js";
@@ -13,6 +20,47 @@ import { extractMoxfieldPublicId } from "../importers/moxfield.js";
 import type { RunSummary } from "../analyze/types.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
+const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+const WEB_DIST_DIR = path.join(REPO_ROOT, "web", "dist");
+
+const STATIC_CONTENT_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".map": "application/json; charset=utf-8",
+  ".woff2": "font/woff2",
+};
+
+function serveStatic(res: import("node:http").ServerResponse, pathname: string) {
+  // Resolve within WEB_DIST_DIR only - reject anything that escapes it
+  // (e.g. via "..") before touching the filesystem.
+  const requested = path.normalize(path.join(WEB_DIST_DIR, pathname));
+  if (!requested.startsWith(WEB_DIST_DIR)) {
+    res.writeHead(400).end();
+    return;
+  }
+
+  let filePath = requested;
+  if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+    // SPA fallback: this app has no client-side routes beyond "/", but
+    // falling back to index.html for any unrecognized path is harmless and
+    // avoids a confusing 404 on a refresh/deep link.
+    filePath = path.join(WEB_DIST_DIR, "index.html");
+  }
+
+  if (!existsSync(filePath)) {
+    res.writeHead(404).end("Dashboard build not found - run `npm run build` in web/.");
+    return;
+  }
+
+  const contentType = STATIC_CONTENT_TYPES[path.extname(filePath)] ?? "application/octet-stream";
+  res.writeHead(200, { "Content-Type": contentType });
+  res.end(readFileSync(filePath));
+}
 
 function listRunIds(): string[] {
   try {
@@ -69,7 +117,12 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   const parts = url.pathname.split("/").filter(Boolean);
 
-  if (parts[0] !== "api" || parts[1] !== "runs") {
+  if (parts[0] !== "api") {
+    serveStatic(res, url.pathname);
+    return;
+  }
+
+  if (parts[1] !== "runs") {
     sendJson(res, 404, { error: "not found" });
     return;
   }

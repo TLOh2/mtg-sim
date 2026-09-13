@@ -56,6 +56,50 @@ npm run analyze:pod -- <run-id> deck1.dck deck2.dck deck3.dck deck4.dck [games=2
 `npm run sim:pod` is the same simulation step alone (no parsing/analysis), if
 you just want raw per-game results.
 
+## Deploying (e.g. Render), so you can use it from your phone
+
+The two options above run on your own machine only. To reach the dashboard
+from anywhere (cellular data, no computer left running), deploy the
+`Dockerfile` at the repo root to a host that can run a long-lived container -
+this was built and tested against [Render](https://render.com):
+
+1. Push this repo to GitHub if it isn't already (Render deploys from a Git
+   repo).
+2. In Render: **New +** → **Blueprint**, point it at this repo. Render
+   should pick up `render.yaml` at the repo root automatically and configure
+   the service for you (Docker build, health check, `NODE_ENV`). If you'd
+   rather do it by hand instead: **New +** → **Web Service**, runtime
+   **Docker**, dockerfile path `./Dockerfile`.
+3. Pick a plan with enough CPU/RAM/build-time headroom - `render.yaml`
+   defaults to **Starter**. The free plan is unlikely to work: building Forge
+   (a real Maven build of a large Java project) and then running a JVM per
+   simulation batch both need more than free-tier resources typically allow.
+4. Deploy. First build will take a while (compiling Forge from source). Once
+   it's up, Render gives you a public `https://<your-service>.onrender.com`
+   URL - that's what you open on your phone.
+
+What to know before relying on it:
+
+- **This has not been deployed and exercised end to end by me** - this
+  session's own network access is restricted (can't reach Render, Docker
+  Hub, or moxfield.com directly - see `PROGRESS.md`), so everything above
+  was built and locally reasoned through as carefully as possible (the
+  static-file serving, the Dockerfile's internal paths, path-traversal
+  safety) but the actual "deploy on Render and click New run from an
+  iPhone" path is unproven. Please try it and tell me what breaks - that's
+  exactly the pattern that caught the MDFC bug and would catch anything
+  wrong here too.
+- **Runs aren't durable across redeploys.** `data/runs/` lives on the
+  service's local disk, which most Render plans wipe on every deploy/restart.
+  Fine for "start a run, check results later that day"; not fine for
+  "results from months ago." Render's persistent disks (a paid add-on) would
+  fix this if you want it - ask and I'll wire it in.
+- **A run in progress needs the service to stay up.** If nothing polls the
+  service for a while, some plans spin the instance down, which would kill
+  an in-progress batch. Your dashboard tab polling every 4s while a run is
+  "running" should count as activity and prevent that, but a plan that
+  doesn't auto-sleep is the safer bet if you plan to close the tab mid-run.
+
 ## Self-checks
 
 Each phase has a script under `scripts/` that proves it actually works (not

@@ -1,0 +1,24 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# One web service, built from the repo's Dockerfile, serving both the API
+# and the dashboard's static assets (see server/src/api/server.ts).
+#
+# Data persistence note: data/runs/ (persisted simulation results) lives on
+# the service's local disk. Without an attached Render persistent disk, that
+# disk is wiped on every deploy/restart - runs survive as long as the
+# instance keeps running, but not across redeploys. Fine for a personal
+# single-user tool; add a `disk:` block below (a paid Render feature) mounted
+# at /app/data if you want results to survive redeploys.
+services:
+  - type: web
+    name: mtg-sim
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter # Forge's Maven build + running a JVM at request time needs
+                  # real CPU/RAM/build-time headroom - the free plan will
+                  # likely fail to build or run acceptably. Size up if a
+                  # batch feels too slow.
+    healthCheckPath: /api/runs
+    envVars:
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true
