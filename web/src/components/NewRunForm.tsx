@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { api } from "../api";
+import { fetchMoxfieldDeckClientSide } from "../moxfieldClient";
 
 export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string) => void; onCancel: () => void }) {
   const [urls, setUrls] = useState(["", "", "", ""]);
   const [games, setGames] = useState(20);
   const [clockSeconds, setClockSeconds] = useState(180);
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function setUrl(i: number, value: string) {
@@ -24,11 +26,28 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
 
     setSubmitting(true);
     try {
-      const { runId } = await api.startRun(trimmed, games, clockSeconds);
+      // Fetched here, in your browser, rather than by the server - see
+      // moxfieldClient.ts for why (the server gets blocked; a real browser
+      // making this request doesn't look like a bot in the first place).
+      setProgress("Fetching decks from Moxfield...");
+      const decks = await Promise.all(
+        trimmed.map(async (url, i) => {
+          try {
+            const raw = await fetchMoxfieldDeckClientSide(url);
+            return { url, raw };
+          } catch (err) {
+            throw new Error(`Player ${i + 1} deck (${url}): ${(err as Error).message}`);
+          }
+        }),
+      );
+
+      setProgress("Starting simulation...");
+      const { runId } = await api.startRun(decks, games, clockSeconds);
       onStarted(runId);
     } catch (err) {
       setError(String((err as Error).message ?? err));
       setSubmitting(false);
+      setProgress(null);
     }
   }
 
@@ -80,6 +99,7 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
       </div>
 
       {error && <p className="error">{error}</p>}
+      {progress && !error && <p className="muted">{progress}</p>}
 
       <div className="new-run-actions">
         <button type="submit" disabled={submitting}>

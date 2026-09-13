@@ -2,28 +2,40 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { importMoxfieldDeck } from "../importers/moxfield.js";
+import { normalizeMoxfieldDeck, type MoxfieldRawDeck } from "../importers/moxfield.js";
 import { toDck } from "../convert/dck.js";
 import { runAndAnalyzePod, writeRunSummary } from "./runAndAnalyzePod.js";
 
-export interface StartPodFromUrlsOptions {
+export interface DeckInput {
+  url: string;
+  raw: unknown;
+}
+
+export interface StartPodFromDecksOptions {
   runId: string;
-  deckUrls: string[];
+  decks: DeckInput[];
   games: number;
   clockSeconds: number;
 }
 
 /**
- * Dashboard entry point: import 4 real Moxfield decks by URL, convert each
- * to .dck, and hand them to the same simulate/parse/analyze pipeline the
- * CLI uses. Meant to be started and not awaited by the caller (the API
- * handler fires this and responds immediately) - all progress and errors
- * are reported through the persisted run file (see runAndAnalyzePod's
+ * Dashboard entry point: 4 already-fetched Moxfield deck JSON blobs (fetched
+ * by the browser, not this server - see web/src/moxfieldClient.ts for why:
+ * a server-side fetch to Moxfield's API gets 403'd, most likely by
+ * TLS/network-level bot detection that no amount of header-spoofing clears,
+ * confirmed against a real deploy - see PROGRESS.md). Normalizes each,
+ * converts to .dck, and hands off to the same simulate/parse/analyze
+ * pipeline the CLI and the URL-fetching path both used.
+ *
+ * Meant to be started and not awaited by the caller (the API handler fires
+ * this and responds immediately) - all progress and errors are reported
+ * through the persisted run file (see runAndAnalyzePod's
  * "running"/"complete"/"failed" status), not this function's return value.
  */
-export async function startPodFromMoxfieldUrls(opts: StartPodFromUrlsOptions): Promise<void> {
-  const { runId, deckUrls, games, clockSeconds } = opts;
+export async function startPodFromMoxfieldDecks(opts: StartPodFromDecksOptions): Promise<void> {
+  const { runId, decks, games, clockSeconds } = opts;
   const createdAt = new Date().toISOString();
+  const deckUrls = decks.map((d) => d.url);
 
   writeRunSummary({
     runId,
@@ -40,14 +52,9 @@ export async function startPodFromMoxfieldUrls(opts: StartPodFromUrlsOptions): P
 
   try {
     const stagingDir = mkdtempSync(path.join(os.tmpdir(), `mtg-sim-${runId}-`));
-    // Import all 4 in parallel, but wait for every result (not just the
-    // first rejection) - a fast-fail Promise.all here would only ever
-    // surface whichever deck happened to fail first in a network race,
-    // which looks misleadingly like "a different deck failed this time"
-    // when the real, useful signal is how many of the 4 failed and why.
     const results = await Promise.allSettled(
-      deckUrls.map(async (url, i) => {
-        const deck = await importMoxfieldDeck(url);
+      decks.map(async ({ url, raw }, i) => {
+        const deck = normalizeMoxfieldDeck(raw as MoxfieldRawDeck, url);
         const dckPath = path.join(stagingDir, `player${i + 1}.dck`);
         writeFileSync(dckPath, toDck(deck), "utf-8");
         return dckPath;
@@ -65,7 +72,7 @@ export async function startPodFromMoxfieldUrls(opts: StartPodFromUrlsOptions): P
           return `Player ${i + 1} (${deckUrls[i]}): ${message}`;
         })
         .join(" | ");
-      throw new Error(`${failures.length}/4 deck imports failed - ${detail}`);
+      throw new Error(`${failures.length}/${decks.length} decks failed to normalize - ${detail}`);
     }
 
     const deckPaths = (results as PromiseFulfilledResult<string>[]).map((r) => r.value);

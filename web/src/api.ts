@@ -24,6 +24,6 @@ export const api = {
   getRun: (runId: string) => getJson<RunDetail>(`/api/runs/${encodeURIComponent(runId)}`),
   getGame: (runId: string, gameIndex: number) =>
     getJson<GameDetail>(`/api/runs/${encodeURIComponent(runId)}/games/${gameIndex}`),
-  startRun: (deckUrls: string[], games?: number, clockSeconds?: number) =>
-    postJson<StartRunResponse>("/api/runs", { deckUrls, games, clockSeconds }),
+  startRun: (decks: { url: string; raw: unknown }[], games?: number, clockSeconds?: number) =>
+    postJson<StartRunResponse>("/api/runs", { decks, games, clockSeconds }),
 };

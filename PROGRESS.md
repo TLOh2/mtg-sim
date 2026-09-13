@@ -327,6 +327,70 @@ is you retrying the same run once the redeploy finishes. If it's still
 denying Render's datacenter IP ranges outright, no header fixes that) -
 worth knowing before spending more effort on header-tweaking if so.
 
+### Update: the header fix didn't work either - and a real bug in my own diagnosis
+
+You retried; still 403. You also caught something I'd gotten sloppy about:
+the error named a *different* player each time (Player 1 before the fix,
+Player 2 after). I'd been about to read that as "progress" - it isn't.
+`startPodFromMoxfieldUrls` fetched all 4 decks via `Promise.all`, which only
+ever surfaces whichever promise rejects *first* in a network race - with 4
+near-simultaneous identical requests all failing for the same underlying
+reason, which one "wins" that race is arbitrary timing noise, not a signal
+about that specific deck. Fixed the diagnostic itself first (switched to
+`Promise.allSettled`, report every failure with its player number - see
+`startPodFromMoxfieldDecks.ts` now) before drawing any more conclusions from
+incomplete data.
+
+Real conclusion once the header fix still failed: this is consistent with
+TLS/network-level bot detection (Cloudflare or similar fingerprinting the
+actual TLS handshake / originating IP range, not reading the `User-Agent`
+string), which no header spoofing can fix from server-side Node code. I
+said as much directly rather than keep iterating on headers indefinitely -
+and said plainly that I wasn't going to pursue the tools that typically
+*do* work around that (TLS fingerprint spoofing, residential proxy
+services), since those are specifically about defeating a site's anti-bot
+protection, not something I'll build even for a personal tool.
+
+### Update: moved the Moxfield fetch into the browser instead
+
+You wanted to keep pasting URLs (not switch to a manual paste-JSON
+fallback), and asked if there was an API key or an account-connect option -
+there isn't; Moxfield has no official public API or developer program, only
+the undocumented endpoint its own web client calls. The real fix: have an
+actual browser make the request, since a real browser isn't impersonating
+anything and doesn't have the TLS/IP signature a datacenter server does.
+
+Changed the architecture: `web/src/moxfieldClient.ts` fetches each deck's
+JSON directly from `api2.moxfield.com` in the user's own browser (no
+custom headers - a real `fetch()` from a page already carries the real
+browser's authentic UA/TLS fingerprint; setting `User-Agent` from JS is
+forbidden anyway). `NewRunForm.tsx` now fetches all 4 decks client-side
+first, then posts `{ decks: [{url, raw}, ...], games, clockSeconds }` to
+`POST /api/runs` - the server never touches Moxfield's network at all for
+this path anymore. Renamed the server module accordingly
+(`startPodFromMoxfieldDecks.ts`; deleted the old fetch-based one) and it
+now just normalizes the already-fetched JSON.
+
+Nice side effect: this made the feature's own self-check
+(`dashboard-start-run-smoke-test.sh`) fully local and network-independent -
+previously it could only ever prove the *failure* path, since it had no way
+to reach Moxfield either. Now it feeds the real fixture deck (the one with
+the MDFC card) in as all 4 players' "already-fetched" JSON and runs a real
+1-game Forge batch through the whole POST /api/runs -> complete pipeline,
+proving genuine end-to-end success locally, plus proper 400s for malformed
+requests and a real `"failed"` status (naming all 4, not just one) when
+every deck's JSON is garbage. Strictly better coverage than before.
+
+**What's still unproven:** whether Moxfield's API actually sends CORS
+headers permitting a *different* origin's JavaScript (your deployed
+dashboard, not moxfield.com) to read the response. If it doesn't, the
+browser will block it with a non-specific "failed to fetch" (real browsers
+deliberately hide the precise CORS-vs-network distinction from JS) - you'd
+see this in your own browser's devtools console, not this session's tools,
+since I still can't reach moxfield.com from here to check myself. If CORS
+does block it, the honest next step is the manual paste-JSON fallback
+proposed earlier, not more attempts to disguise the request.
+
 ## Phase 5 — deprioritized by you; dropped from active scope
 
 Was going to be blocked anyway (`archidekt.com` is blocked by this session's

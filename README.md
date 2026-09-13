@@ -20,7 +20,9 @@ both servers and opens the dashboard in your browser. Press Ctrl+C in that
 terminal to stop everything cleanly.
 
 Click **+ New run**, paste 4 Moxfield deck URLs (`https://moxfield.com/decks/<id>`,
-one per player), and submit. A full batch (20 games by default) can take a
+one per player), and submit. Your own browser fetches each deck directly from
+Moxfield (not the server - see "A note on how deck import works" below), then
+hands the results off to run. A full batch (20 games by default) can take a
 while; the run appears immediately with a "running" status and the page
 polls until it's done, so it's safe to navigate away and come back later.
 
@@ -78,17 +80,29 @@ this was built and tested against [Render](https://render.com):
    it's up, Render gives you a public `https://<your-service>.onrender.com`
    URL - that's what you open on your phone.
 
+### A note on how deck import works (and why)
+
+The dashboard's "+ New run" form fetches each of the 4 decks **in your own
+browser**, not on the server, then sends the already-fetched JSON along with
+the run request. This isn't just a design choice - it's a fix for something
+that actually broke on a real deployment: the server's own fetch to
+Moxfield's API got 403'd every time on Render, even after sending
+browser-like headers. That's consistent with TLS/network-level bot
+detection (rejecting a datacenter's request fingerprint, not just checking
+the `User-Agent` string), which no header spoofing fixes. Your own browser
+making the request is the legitimate way around that - it's an actual
+browser, not something impersonating one.
+
+One thing this depends on that isn't fully proven: Moxfield's API needs to
+respond with CORS headers that allow a *different* site's JavaScript
+(your deployed dashboard's origin, not moxfield.com) to read the response.
+If it doesn't, your browser will block reading the result with a (frustratingly
+non-specific) "failed to fetch" error - check your browser's devtools
+console/network tab for the real reason if that happens. See `PROGRESS.md`
+for where this stands.
+
 What to know before relying on it:
 
-- **This has not been deployed and exercised end to end by me** - this
-  session's own network access is restricted (can't reach Render, Docker
-  Hub, or moxfield.com directly - see `PROGRESS.md`), so everything above
-  was built and locally reasoned through as carefully as possible (the
-  static-file serving, the Dockerfile's internal paths, path-traversal
-  safety) but the actual "deploy on Render and click New run from an
-  iPhone" path is unproven. Please try it and tell me what breaks - that's
-  exactly the pattern that caught the MDFC bug and would catch anything
-  wrong here too.
 - **Runs aren't durable across redeploys.** `data/runs/` lives on the
   service's local disk, which most Render plans wipe on every deploy/restart.
   Fine for "start a run, check results later that day"; not fine for
