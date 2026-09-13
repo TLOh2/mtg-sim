@@ -176,6 +176,19 @@ any other pod) via `npm run analyze:pod -- <run-id> <deck1.dck> ...
 endpoints against the real persisted result, and builds the web app - a
 faithful "does this actually work" check rather than just a green typecheck.
 
+**A real bug worth recording:** the first version of this script hung for
+2+ hours (you caught it - thank you). Root cause, confirmed via `/proc`
+inspection of the stuck process: the background API server inherited this
+script's own stdout, so when the script ran under a pipe, the server held
+that pipe's write end open indefinitely, and `kill "$API_PID"` only killed
+the immediate subshell, not the actual node process npx/tsx forked
+underneath it, which got reparented to init and just sat there. Fixed by
+redirecting the server's output to a log file instead of inheriting the
+script's, and by having cleanup kill whatever's actually bound to the port
+(via `lsof`) rather than trust the originally-captured PID. Re-ran it after
+the fix: completed in about a minute, passed, and left zero processes or open
+ports behind - confirmed directly, not assumed.
+
 ## Phase 5 — blocked, deliberately not guessed at
 
 Same network restriction as Phase 1 (`archidekt.com` is blocked by this
