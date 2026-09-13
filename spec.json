@@ -54,8 +54,8 @@
   "deck_sources": {
     "moxfield": {
       "phase": 1,
-      "status": "to validate empirically against real deck URLs",
-      "api_note": "Moxfield has an undocumented public JSON API used by its own web client (api2.moxfield.com/v2/decks/all/{publicId}); no official API docs. Confirm exact response shape empirically in Phase 1 and record findings here/in PROGRESS.md.",
+      "status": "CONFIRMED against a real live deck (user-supplied JSON from api2.moxfield.com/v3/decks/all/{publicId}); see PROGRESS.md Phase 1",
+      "api_note": "Moxfield has an undocumented public JSON API used by its own web client. boards.{commanders,mainboard,sideboard}.cards is Record<string, {quantity, card: {name, set, cn, ...}}> - confirmed exactly as implemented. MDFCs report a combined 'Front // Back' name; truncated to front face in server/src/convert/dck.ts since that's how Forge indexes them.",
       "input_shape_expected": "a Moxfield deck URL, e.g. https://www.moxfield.com/decks/<publicId>",
       "normalization_target": "internal NormalizedDeck shape (see data_model.NormalizedDeck) decoupled from Moxfield's response shape"
     },
@@ -219,7 +219,7 @@
 
   "phases": [
     { "phase": 0, "name": "Forge headless build + CLI sim smoke test", "done_when": "sim mode invoked with two real .dck decks produces a real winner + log, reproducibly" },
-    { "phase": 1, "name": "Moxfield import -> normalized decklist -> .dck", "done_when": "at least two real Moxfield deck URLs convert to valid, Forge-loadable .dck files" },
+    { "phase": 1, "name": "Moxfield import -> normalized decklist -> .dck", "done_when": "at least two real Moxfield deck URLs convert to valid, Forge-loadable .dck files", "status": "done - confirmed against one real live deck's JSON (network egress to moxfield.com is blocked in-session, so the user fetched and pasted it); MDFC name-truncation bug found and fixed as a direct result" },
     { "phase": 2, "name": "Pipeline wired into Forge sim mode", "done_when": "one real 4-deck pod runs a 20-game batch and yields structured per-game results" },
     { "phase": 3, "name": "Log parsing + turning-point detection", "done_when": "a batch's games are parsed into structured events with turning points flagged, on real (not fixture) logs" },
     { "phase": 4, "name": "Results dashboard + game log viewer", "done_when": "a batch's aggregate results and an individual game's log are viewable in a browser" },

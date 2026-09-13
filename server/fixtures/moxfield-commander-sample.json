@@ -38,6 +38,10 @@
         "m6": {
           "quantity": 1,
           "card": { "name": "Rampant Growth" }
+        },
+        "m7": {
+          "quantity": 1,
+          "card": { "name": "Needleverge Pathway // Pillarverge Pathway", "set": "znr", "cn": "263" }
         }
       }
     },

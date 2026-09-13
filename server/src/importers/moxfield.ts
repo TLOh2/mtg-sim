@@ -1,17 +1,21 @@
 import type { CardRef, NormalizedDeck } from "../types/deck.js";
 
 // Moxfield has no official public API docs; this targets the JSON endpoint
-// its own web client calls under the hood. IMPORTANT: this session could not
-// reach moxfield.com at all (outbound network policy blocks it - see
-// PROGRESS.md), so the exact response shape below is unverified against a
-// live deck. It's built from the widely-documented community understanding
-// of that endpoint. `normalizeMoxfieldDeck` is written defensively (accepts
-// a couple of known field-name variants) and is unit-tested against a
-// hand-built fixture (fixtures/moxfield-commander-sample.json) so the
-// normalization logic itself is validated even without live access - but
-// re-running scripts/phase1-smoke-test.sh against a real deck URL, from an
-// environment that can reach moxfield.com, is the real validation this still
-// needs.
+// its own web client calls under the hood. This session's own network egress
+// is blocked from reaching moxfield.com directly (see PROGRESS.md), but the
+// shape below has now been CONFIRMED against a real response: the user
+// fetched a live deck (a Jeskai Human Knights Commander deck, commander
+// Éowyn, Shieldmaiden) via this exact endpoint and pasted the raw JSON.
+// `card.set` and `card.cn` are exactly right - no fallback field names are
+// actually needed - and `boards.{commanders,mainboard,sideboard}.cards` is a
+// Record<string, entry> as modeled here. The `set_code`/`collector_number`
+// fallbacks in toCardRef are kept as harmless defensive coding but are dead
+// code against the real API. One real-data wrinkle this did surface: MDFCs
+// (modal double-faced cards) come back with a combined "Front // Back" name
+// (e.g. "Needleverge Pathway // Pillarverge Pathway") - handled in
+// ../convert/dck.ts by truncating to the front face, since that's how
+// Forge's card database indexes them. `fixtures/moxfield-commander-sample.json`
+// reflects this confirmed real shape, including an MDFC entry.
 
 const API_BASE = "https://api2.moxfield.com/v3/decks/all";
 

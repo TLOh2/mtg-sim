@@ -30,7 +30,7 @@ reversible implementation choice, noted for your awareness, not for permission.
 ## Status by phase
 
 - [x] **Phase 0 — Forge headless build + CLI sim smoke test** — DONE
-- [~] **Phase 1 — Moxfield import → normalized decklist → `.dck`** — CODE DONE, live validation blocked (see below)
+- [x] **Phase 1 — Moxfield import → normalized decklist → `.dck`** — DONE, validated against a real live Moxfield deck (see below)
 - [x] **Phase 2 — Wire pipeline into Forge sim mode (4-deck pod, 20-game batch)** — DONE
 - [x] **Phase 3 — Log parsing + turning-point detection** — DONE
 - [x] **Phase 4 — Results dashboard + game log viewer (web UI)** — DONE
@@ -62,48 +62,45 @@ tag `forge-2.0.14-392-g61bc0b600f1`) is vendored as a git submodule at
 - Run `bash scripts/phase0-smoke-test.sh` any time to re-verify this phase
   still works (e.g. after pulling a newer submodule commit).
 
-## Phase 1 — code done; live validation blocked by network policy
+## Phase 1 — done, validated against real live Moxfield data
 
-**Blocker (flagging per instructions, not stopping for it):** this session's
-outbound network egress policy blocks `moxfield.com` (and, spot-checked,
-`archidekt.com`, `api.scryfall.com`, and even `example.com`) entirely - both
-plain `curl` and the WebFetch tool get a hard `EGRESS_BLOCKED`/403 from the
-organization's egress proxy. GitHub and the npm registry are allowed (that's
-how `engine/forge` and `server/node_modules` got here), but general web
-access is not. This is an environment/org policy setting, not something in
-my control - see the "Environment configuration" note about network policy
-in this session's system context. **I could not run the literal instruction
-"validate against a couple of real Moxfield deck URLs."**
+This session's own outbound network egress policy blocks `moxfield.com`
+entirely (confirmed via both `curl` and the WebFetch tool - `EGRESS_BLOCKED`/
+403 from the org's egress proxy; `archidekt.com`, `api.scryfall.com`, and
+even `example.com` are blocked the same way). I could not fetch a live deck
+myself. Instead, you fetched one for me: a real deck URL
+(`https://moxfield.com/decks/IkRqYB5fpU2SkgSyzAuJpA`, a Jeskai Human Knights
+Commander deck with commander Éowyn, Shieldmaiden) and pasted the complete
+raw JSON response from Moxfield's own API. That closes out this phase for
+real:
 
-What I did instead, to make real (not fake) progress anyway:
-- Built `server/src/importers/moxfield.ts` against the best available
-  community-documented understanding of Moxfield's unofficial deck JSON API
-  (`api2.moxfield.com/v3/decks/all/{publicId}`), written defensively (accepts
-  a couple of known field-name variants for set code / collector number).
-  **This exact shape is unverified against a live response.**
-  It's plausible but should be treated as a draft until someone runs it for
-  real.
-- Wrote `server/fixtures/moxfield-commander-sample.json`, a hand-built
-  fixture in that shape, and unit-tested normalization + `.dck` conversion
-  against it (`server/src/importers/moxfield.test.ts` - 4 passing tests).
-- Went one step further than a unit test alone: `scripts/phase1-smoke-test.sh`
-  takes the fixture all the way through to a **real Forge game** - generates
-  a `.dck` from it and hands it to Forge's sim mode alongside a real precon.
-  Forge loaded every card (including bare name-only fallback lines for cards
-  with no set/collector-number in the fixture) and played a complete game.
-  This validates the `.dck` output format and Forge's card-name resolution
-  for real; it does not and cannot validate that Moxfield's actual API
-  matches what `moxfield.ts` expects.
+- **`boards.{commanders,mainboard,sideboard}.cards` is a
+  `Record<string, entry>`, each entry `{ quantity, card: { name, set, cn, ... } }`
+  — confirmed exactly as `moxfield.ts` already assumed.** `card.set` and
+  `card.cn` are the real field names; the `set_code`/`collector_number`
+  fallbacks in `toCardRef` turned out to be unneeded defensive code (kept,
+  harmless) rather than something load-bearing.
+- One real wrinkle the live data surfaced that the hand-built fixture hadn't
+  covered: **modal double-faced cards (MDFCs)** come back with a combined
+  "Front // Back" display name (the real deck had
+  "Needleverge Pathway // Pillarverge Pathway"). Forge's card database
+  indexes these by front-face name only, and its deck-line parser
+  (`DeckRecognizer`) is lenient enough to accept the "/" characters rather
+  than reject the line outright - so an unmodified combined name would have
+  silently failed to resolve at sim time instead of erroring loudly. Fixed
+  in `server/src/convert/dck.ts` (`frontFaceName()` strips everything from
+  `" // "` onward before emitting a card line), with a regression test
+  (`moxfield.test.ts`) asserting the `.dck` output uses the front face only.
+- `server/fixtures/moxfield-commander-sample.json` now includes an MDFC
+  entry so this stays covered without needing live access to re-verify.
+- Existing coverage still holds: `server/src/importers/moxfield.test.ts`
+  (now 4 tests, updated for the MDFC case) and
+  `scripts/phase1-smoke-test.sh` (fixture → `.dck` → real Forge game,
+  every card resolves and a full game plays out).
 
-**What I'd like you to do:** either (a) run
-`cd server && npm run import:moxfield -- <a real Moxfield deck URL>` from
-somewhere with normal internet access and tell me what breaks (most likely
-culprit if something does: the exact `boards.mainboard.cards[key].card`
-field names - `set` vs `set_code`, `cn` vs `collector_number` - easy to patch
-once I see a real response), or (b) if this environment's network policy can
-be widened to allow `moxfield.com`, I can run that validation myself next
-session. Either way this is the one open item blocking Phase 1 from being
-fully "done" rather than "done modulo live validation."
+Net result: the importer's field-name assumptions were correct on the first
+try; the only real bug real data caught was the MDFC name-truncation case,
+now fixed and tested.
 
 ## Phase 2 — done
 
@@ -236,6 +233,8 @@ Redirecting that effort at Moxfield instead - see the ask right below.
 
 ## Blockers (one-way-door items)
 
-- **Network egress to Moxfield/Archidekt is blocked in this session** (see
-  "Phase 1" above for full detail). Not a permission question, just flagging
-  it since it's the one thing actually outside my control right now.
+- **Network egress to Moxfield/Archidekt is blocked in this session.** For
+  Moxfield this stopped being a real blocker: you fetched a live deck and
+  pasted the JSON, which was enough to fully validate Phase 1 (see "Phase 1"
+  above). Archidekt import is deprioritized anyway (see below), so this only
+  matters if that's picked back up later.

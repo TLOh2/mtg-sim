@@ -30,10 +30,13 @@ test("normalizeMoxfieldDeck produces one commander and the full mainboard", () =
   assert.equal(deck.commander.length, 1);
   assert.equal(deck.commander[0].name, "Muldrotha, the Gravetide");
   assert.equal(deck.commander[0].setCode, "dom");
-  assert.equal(deck.mainboard.length, 6);
+  assert.equal(deck.mainboard.length, 7);
   const forest = deck.mainboard.find((c) => c.name === "Forest");
   assert.equal(forest?.quantity, 34);
   assert.equal(forest?.setCode, null);
+  const mdfc = deck.mainboard.find((c) => c.name.startsWith("Needleverge"));
+  assert.equal(mdfc?.name, "Needleverge Pathway // Pillarverge Pathway");
+  assert.equal(mdfc?.setCode, "znr");
 });
 
 test("normalizeMoxfieldDeck rejects a deck with no commander board entries", () => {
@@ -57,6 +60,10 @@ test("toDck renders exact-printing lines with set|collector-number and falls bac
   // No set/collector number on the source card -> name-only fallback line.
   assert.match(dck, /^1 Eternal Witness$/m);
   assert.match(dck, /^34 Forest$/m);
+  // MDFC: Moxfield's combined "Front // Back" name is truncated to the
+  // front face, since that's how Forge's card database indexes it.
+  assert.match(dck, /^1 Needleverge Pathway\|ZNR\|263$/m);
+  assert.doesNotMatch(dck, /Pillarverge/);
 
   // Section ordering matters to Forge's parser.
   const sectionOrder = ["[metadata]", "[Avatar]", "[Commander]", "[Main]", "[Sideboard]"];
