@@ -55,7 +55,10 @@ export interface PlayerGameStats {
   spellsCast: number;
   actionsTotal: number;
   firstSpellCastTurn: number | null;
+  /** First turn the commander was cast from the command zone - see firstCommanderCastTurn's doc comment on why this isn't just averaged directly (a died-and-recast commander shows up here more than once). */
   commanderCastTurns: number[];
+  /** commanderCastTurns[0] - kept as its own field (rather than deriving avgCommanderCastTurn from the raw array) because a commander that dies mid-game and gets recast from the command zone later shows up as a SECOND entry in commanderCastTurns, and averaging every entry equally skews "how fast does this deck get its commander out" later than reality - confirmed with real data: one deck's true first-cast average was turn 3.8, but averaging every cast (including post-death recasts) read as turn 5.4. */
+  firstCommanderCastTurn: number | null;
   combatDamageTaken: number;
   nonCombatDamageTaken: number;
   /** Combat + non-combat damage this player's own cards dealt to anyone - see the ownerOf note on computeGameStats for how "dealt by" is attributed. */
@@ -107,6 +110,7 @@ function emptyPlayerStats(player: string): PlayerGameStats {
     actionsTotal: 0,
     firstSpellCastTurn: null,
     commanderCastTurns: [],
+    firstCommanderCastTurn: null,
     combatDamageTaken: 0,
     nonCombatDamageTaken: 0,
     combatDamageDealt: 0,
@@ -237,6 +241,7 @@ export function computeGameStats(
           const commanders = player ? commandersByPlayer[player] : undefined;
           if (card && commanders?.includes(card)) {
             stats.commanderCastTurns.push(currentTurn);
+            if (stats.firstCommanderCastTurn === null) stats.firstCommanderCastTurn = currentTurn;
           }
           const manaValue = asNumber(event.manaValue);
           if (player && manaValue !== null) {
@@ -386,6 +391,7 @@ export interface DeckAggregateStats {
   avgLandsPlayed: number;
   avgSpellsCast: number;
   avgFirstSpellCastTurn: number | null;
+  /** Average of the FIRST turn the commander was cast each game - a commander that dies and gets recast later in the same game does not pull this average later; see PlayerGameStats.firstCommanderCastTurn. */
   avgCommanderCastTurn: number | null;
   avgEliminatedTurnWhenLost: number | null;
   avgCombatDamageDealt: number;
@@ -508,7 +514,9 @@ export function computeRunAggregateStats(
     const firstSpellCastTurns = perGame
       .map(({ stats }) => stats?.firstSpellCastTurn)
       .filter((t): t is number => t !== null && t !== undefined);
-    const commanderCastTurns = perGame.flatMap(({ stats }) => stats?.commanderCastTurns ?? []);
+    const firstCommanderCastTurns = perGame
+      .map(({ stats }) => stats?.firstCommanderCastTurn)
+      .filter((t): t is number => t !== null && t !== undefined);
     const eliminatedTurnsWhenLost = perGame
       .filter(({ game }) => game.winnerName !== player)
       .map(({ stats }) => stats?.eliminatedTurn)
@@ -586,7 +594,7 @@ export function computeRunAggregateStats(
       avgLandsPlayed,
       avgSpellsCast: avg(spellsCast) ?? 0,
       avgFirstSpellCastTurn: avg(firstSpellCastTurns),
-      avgCommanderCastTurn: avg(commanderCastTurns),
+      avgCommanderCastTurn: avg(firstCommanderCastTurns),
       avgEliminatedTurnWhenLost: avg(eliminatedTurnsWhenLost),
       avgCombatDamageDealt: avg(combatDamageDealt) ?? 0,
       avgNonCombatDamageDealt: avg(nonCombatDamageDealt) ?? 0,

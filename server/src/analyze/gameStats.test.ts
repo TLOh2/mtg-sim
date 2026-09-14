@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { computeGameStats, computeRunSpellsByRoundPerPlayer } from "./gameStats.js";
+import { computeGameStats, computeRunAggregateStats, computeRunSpellsByRoundPerPlayer } from "./gameStats.js";
 import type { AnalyticsEvent } from "../parse/types.js";
+import type { AnalyzedGame } from "./types.js";
 
 const PLAYERS = ["Alice", "Bob"];
 
@@ -59,6 +60,63 @@ test("computeGameStats: spellsByRound tracks each player's own count per round, 
   ];
   const stats = computeGameStats(0, events, PLAYERS, {});
   assert.deepEqual(stats.spellsByRound, { 1: { Alice: 2, Bob: 1 } });
+});
+
+test("computeGameStats: firstCommanderCastTurn is the FIRST cast, even when the commander dies and gets recast later the same game", () => {
+  const events: AnalyticsEvent[] = [
+    turnBegan("Alice", 1),
+    turnBegan("Bob", 2),
+    turnBegan("Alice", 3),
+    spellCast("Alice", "Atraxa, Praetors' Voice", 4), // first cast, round 2
+    turnBegan("Bob", 4),
+    turnBegan("Alice", 5),
+    spellCast("Alice", "Atraxa, Praetors' Voice", 5), // recast from the command zone after dying, round 3
+  ];
+  const stats = computeGameStats(0, events, PLAYERS, { Alice: ["Atraxa, Praetors' Voice"] });
+  const alice = stats.players.find((p) => p.player === "Alice")!;
+  assert.equal(alice.firstCommanderCastTurn, 2);
+  // The raw array still records every cast - just isn't what gets averaged.
+  assert.deepEqual(alice.commanderCastTurns, [2, 3]);
+});
+
+test("computeRunAggregateStats: avgCommanderCastTurn averages the first cast per game, not every recast", () => {
+  const commandersByPlayer = { Alice: ["Atraxa, Praetors' Voice"] };
+  // Game 0: commander cast turn 3, dies, recast turn 8 - a naive
+  // flatten-and-average would pull the "how fast do I get it out" signal
+  // toward 5.5, when the deck actually gets it out turn 3 every time.
+  const game0Events: AnalyticsEvent[] = [
+    turnBegan("Alice", 1),
+    turnBegan("Alice", 2),
+    turnBegan("Alice", 3),
+    spellCast("Alice", "Atraxa, Praetors' Voice", 4),
+    turnBegan("Alice", 4),
+    turnBegan("Alice", 5),
+    turnBegan("Alice", 6),
+    turnBegan("Alice", 7),
+    turnBegan("Alice", 8),
+    spellCast("Alice", "Atraxa, Praetors' Voice", 4),
+  ];
+  // Game 1: cast once, turn 3.
+  const game1Events: AnalyticsEvent[] = [
+    turnBegan("Alice", 1),
+    turnBegan("Alice", 2),
+    turnBegan("Alice", 3),
+    spellCast("Alice", "Atraxa, Praetors' Voice", 4),
+  ];
+  const gs0 = computeGameStats(0, game0Events, PLAYERS, commandersByPlayer);
+  const gs1 = computeGameStats(1, game1Events, PLAYERS, commandersByPlayer);
+  const gameStatsByIndex = new Map([
+    [0, gs0],
+    [1, gs1],
+  ]);
+  const games: Pick<AnalyzedGame, "gameIndex" | "winnerName" | "isDraw">[] = [
+    { gameIndex: 0, winnerName: null, isDraw: true },
+    { gameIndex: 1, winnerName: null, isDraw: true },
+  ];
+  const aggregate = computeRunAggregateStats(games, gameStatsByIndex, PLAYERS);
+  const alice = aggregate.find((a) => a.player === "Alice")!;
+  // (3 + 3) / 2 = 3, not (3 + 8 + 3) / 3 = 4.67.
+  assert.equal(alice.avgCommanderCastTurn, 3);
 });
 
 test("computeRunSpellsByRoundPerPlayer: averages (sums / gamesPlayed) rather than summing raw totals", () => {

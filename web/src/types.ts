@@ -103,6 +103,7 @@ export interface PlayerGameStats {
   actionsTotal: number;
   firstSpellCastTurn: number | null;
   commanderCastTurns: number[];
+  firstCommanderCastTurn: number | null;
   combatDamageTaken: number;
   nonCombatDamageTaken: number;
   combatDamageDealt: number;
