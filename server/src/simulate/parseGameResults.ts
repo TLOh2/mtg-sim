@@ -12,10 +12,33 @@ import type { GameResult } from "./types.js";
 const WIN_LINE = /^Game Result: Game (\d+) ended in (\d+) ms\. (.+) has won!\s*$/;
 const DRAW_LINE = /^Game Result: Game (\d+) ended in a Draw! Took (\d+) ms\.\s*$/;
 
-export function parseGameResults(rawStdout: string): GameResult[] {
+/**
+ * clockSeconds, when given, corrects a real bug in Forge's own timeout
+ * handling (SimulateMatch.java's runWithTimeout wraps the game loop in a
+ * cancelled-on-timeout background thread) - confirmed with real data, not
+ * guessed: every game in a real run whose durationMs landed at-or-past the
+ * clock was reported as a *win*, always for the same seat (seat 1), never
+ * as the draw SimulateMatch.java's own code clearly intends
+ * (`g1.setGameOver(GameEndReason.Draw)` in its finally block, with a
+ * "Stopping slow match as draw" log line). Root cause: `future.cancel(true)`
+ * only *requests* interruption - Forge's game loop doesn't check for it at
+ * fine enough granularity, so the background thread keeps mutating the
+ * shared Game object after the timeout fires, racing the main thread's
+ * forced draw and usually winning that race with a stale/partial outcome
+ * (the same seat every time, not a real winner - the captured log even
+ * showed every player logged as "has won because all opponents have lost"
+ * simultaneously, a state that never occurs in a real elimination). Rather
+ * than patch Forge's internal game-loop cancellation (a vendored,
+ * unfamiliar codebase - see engine/NOTES.md's vendoring philosophy), a
+ * duration that reached or exceeded the wall-clock budget is an
+ * unambiguous signal on its own: a natural finish always returns strictly
+ * before the timer fires, so this can never misclassify a real win.
+ */
+export function parseGameResults(rawStdout: string, clockSeconds?: number): GameResult[] {
   const lines = rawStdout.split("\n");
   const games: GameResult[] = [];
   let segmentStart = 0;
+  const timedOut = (durationMs: number) => clockSeconds !== undefined && durationMs >= clockSeconds * 1000;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -25,11 +48,12 @@ export function parseGameResults(rawStdout: string): GameResult[] {
 
     const rawLog = lines.slice(segmentStart, i + 1).join("\n");
     if (winMatch) {
+      const durationMs = Number(winMatch[2]);
       games.push({
         gameIndex: Number(winMatch[1]),
-        winnerName: winMatch[3],
-        isDraw: false,
-        durationMs: Number(winMatch[2]),
+        winnerName: timedOut(durationMs) ? null : winMatch[3],
+        isDraw: timedOut(durationMs),
+        durationMs,
         rawLog,
       });
     } else if (drawMatch) {

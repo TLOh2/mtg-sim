@@ -46,3 +46,40 @@ test("parseGameResults splits a multi-game batch into per-game results", () => {
 test("parseGameResults returns an empty list for output with no completed games", () => {
   assert.deepEqual(parseGameResults("Simulation mode\nCould not load deck - x.dck"), []);
 });
+
+// See parseGameResults.ts's doc comment: a "win" whose duration reached the
+// wall-clock budget is Forge's own timeout-cancellation bug, not a real
+// win (confirmed against a real run - every such "win" was the same seat,
+// never a genuine elimination). clockSeconds, when passed, corrects it.
+
+test("parseGameResults: a win at or past the clock is reclassified as a draw when clockSeconds is given", () => {
+  const stdout = [
+    "Turn: Turn 1 (Ai(1)-Deck A)",
+    "Game Result: Game 1 ended in 180114 ms. Ai(1)-Deck A has won!",
+    "",
+  ].join("\n");
+
+  const games = parseGameResults(stdout, 180);
+
+  assert.equal(games[0].isDraw, true);
+  assert.equal(games[0].winnerName, null);
+  assert.equal(games[0].durationMs, 180114);
+});
+
+test("parseGameResults: a win comfortably under the clock is left alone even when clockSeconds is given", () => {
+  const stdout = ["Game Result: Game 1 ended in 22457 ms. Ai(2)-Deck B has won!", ""].join("\n");
+
+  const games = parseGameResults(stdout, 180);
+
+  assert.equal(games[0].isDraw, false);
+  assert.equal(games[0].winnerName, "Ai(2)-Deck B");
+});
+
+test("parseGameResults: without clockSeconds, a win at the clock limit is trusted as-is (old behavior preserved for callers that don't pass it)", () => {
+  const stdout = ["Game Result: Game 1 ended in 180114 ms. Ai(1)-Deck A has won!", ""].join("\n");
+
+  const games = parseGameResults(stdout);
+
+  assert.equal(games[0].isDraw, false);
+  assert.equal(games[0].winnerName, "Ai(1)-Deck A");
+});

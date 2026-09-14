@@ -98,7 +98,7 @@ export function runForgeBatch(deckDckPaths: string[], opts: BatchRunOptions): Pr
         reject(new Error(`Forge sim run '${opts.runId}' exited with code ${code}:\n${stderr}`));
         return;
       }
-      const games = parseGameResults(stdout).map((game) => ({
+      const games = parseGameResults(stdout, opts.clockSeconds).map((game) => ({
         ...game,
         analyticsEvents: readAnalyticsEvents(analyticsDir, game.gameIndex),
       }));
