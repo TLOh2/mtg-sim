@@ -116,13 +116,17 @@ What to know before relying on it:
   an in-progress batch. Your dashboard tab polling every 4s while a run is
   "running" should count as activity and prevent that, but a plan that
   doesn't auto-sleep is the safer bet if you plan to close the tab mid-run.
-- **Forge needs real memory.** Loading its ~34,000-card database on startup
-  hit `OutOfMemoryError` on a real deploy - `engine/run-sim.sh` now tells the
-  JVM to use up to 75% of whatever RAM the container actually has (rather
-  than its own more conservative default), which may be enough on its own.
-  If it still runs out, that's a real sign the instance is too small for
-  Forge, not something a JVM flag can fix - the next step would be a bigger
-  (more expensive) Render instance type.
+- **Forge needs real memory - confirmed 512MB (Render's Starter plan) isn't
+  enough.** Loading its ~34,000-card database crashed the whole service on a
+  real deploy (confirmed via Render's own Metrics tab: memory usage spiked
+  to 100% of a 512MB limit right at the crash). `engine/run-sim.sh` caps the
+  JVM at an explicit `-Xmx384m` (overridable via `FORGE_MAX_HEAP_MB`) so a
+  too-small instance now fails *one run* cleanly instead of crashing the
+  whole service for everyone - but it doesn't manufacture memory that isn't
+  there. If runs keep failing with an out-of-memory error, the real fix is
+  more RAM: a bigger Render plan, or a different host entirely (our
+  `Dockerfile` should port to Fly.io, Railway, a plain VPS, etc. with little
+  to no change).
 
 ## Self-checks
 

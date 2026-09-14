@@ -499,6 +499,43 @@ needs to be sized up (a real cost decision, your call). Next step is the
 same as always: you retry on the redeployed instance and tell me what
 happens.
 
+### Update: confirmed - 512MB total, and the 75% fix made the failure worse
+
+You retried; this time got a `502` instead of a clean "failed" run - a
+different, worse failure mode. Checked Render's own Metrics tab (real
+data, not a guess): **512 MB memory limit**, and usage spiked to 100% right
+at the time of the crash. That's not "Forge's heap ran out" (a clean, Java-
+level `OutOfMemoryError` our code already catches and reports as a normal
+`"failed"` run) - it's the whole *container* running out of memory and
+getting killed and restarted by Render's infrastructure, which is why the
+API itself went unreachable (502) instead of showing a failed run.
+
+That also means my own previous fix made things worse, not better:
+`-XX:MaxRAMPercentage=75.0` told the JVM to claim up to 75% of a 512MB
+container (~384MB) on top of whatever Node itself was already using in the
+*same* container - combined, that's enough to blow through the 512MB limit
+entirely and take the whole service down, not just fail one run.
+
+Fixed properly: replaced the percentage-based flag with an explicit,
+conservative `-Xmx384m` cap (overridable via a `FORGE_MAX_HEAP_MB` env var,
+so a bigger instance can just raise it later without another code push).
+Verified locally that 384MB is genuinely enough for Forge's own needs on
+its own (full card DB load + a complete game, via
+`scripts/phase0-smoke-test.sh`) - so if this still isn't enough on Render,
+the problem is Node + JVM overhead together exceeding 512MB total, not
+Forge's heap requirement itself. Either way, a too-small instance now fails
+*one run* cleanly (a catchable error, reported as a normal `"failed"`
+status) instead of crashing the whole service for every visitor.
+
+**What this can't fix:** if 512MB genuinely isn't enough headroom for
+Node + JVM together, the run will report a clean `OutOfMemoryError` failure
+rather than succeeding - and the only real fix at that point is more memory:
+either a bigger Render plan, or a different host. We talked through
+alternatives (Fly.io, Railway, DigitalOcean/Hetzner/Lightsail VPS, Oracle's
+free tier) - `Dockerfile` as it stands should port to any of them with
+little to no change. Your call on whether to size up the current instance
+or move.
+
 ## Phase 5 — deprioritized by you; dropped from active scope
 
 Was going to be blocked anyway (`archidekt.com` is blocked by this session's

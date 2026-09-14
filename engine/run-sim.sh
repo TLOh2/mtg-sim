@@ -51,11 +51,15 @@ CLASSES_CP="$ENGINE_DIR/forge/forge-gui-desktop/target/classes:$ENGINE_DIR/forge
 FULL_CP="$CLASSES_CP:$BUILD_CP"
 
 cd "$ENGINE_DIR/forge/forge-gui-desktop"
-# -XX:MaxRAMPercentage lets the JVM claim a real share of whatever memory the
-# host/container actually has (modern OpenJDK is cgroup-aware by default),
-# rather than its own conservative ~25%-of-detected-memory default - needed
-# after a real deploy hit OutOfMemoryError loading Forge's ~34k-card database
-# on a small container. If this alone isn't enough, the container genuinely
-# doesn't have enough RAM for Forge and needs a bigger instance size - no
-# flag fixes that. See PROGRESS.md.
-exec java -Djava.awt.headless=true -XX:MaxRAMPercentage=75.0 -cp "$FULL_CP" forge.view.Main sim -d "${RELATIVE_DECKS[@]}" "${EXTRA_ARGS[@]}"
+# An earlier version of this used -XX:MaxRAMPercentage=75.0 to let the JVM
+# claim a share of container memory - on a real deploy with only 512MB
+# total, that let the JVM's memory demands collide with Node's own and take
+# down the *whole* container (confirmed via Render's memory graph spiking to
+# 100% right as it crashed - a 502, not a clean per-run failure). An
+# explicit, conservative heap cap instead means a too-small instance fails
+# *this one Forge run* cleanly (a catchable OutOfMemoryError - see
+# forgeRunner.ts) rather than crashing the whole service for everyone using
+# it. FORGE_MAX_HEAP_MB is overridable via env var so a bigger instance can
+# just raise it without another code change. See PROGRESS.md.
+FORGE_MAX_HEAP_MB="${FORGE_MAX_HEAP_MB:-384}"
+exec java -Djava.awt.headless=true "-Xmx${FORGE_MAX_HEAP_MB}m" -cp "$FULL_CP" forge.view.Main sim -d "${RELATIVE_DECKS[@]}" "${EXTRA_ARGS[@]}"
