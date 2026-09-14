@@ -4,6 +4,8 @@ import type { Award, CardCastCount, DeckAggregateStats, RunDetail, RunStats, Spe
 import { ThreatMatrixTable } from "./ThreatMatrix";
 import { StatusBadge, WinRateBar, shortName } from "./RunList";
 import { HorizontalBarChart, LineChart, seriesColor } from "./Charts";
+import { formatStoryAsText } from "./GameStoryView";
+import { createZip, downloadBlob } from "../lib/zip";
 
 const POLL_MS = 4000;
 
@@ -49,6 +51,7 @@ export function RunDetailView({
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [zipping, setZipping] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -127,6 +130,47 @@ export function RunDetailView({
     window.print();
   }
 
+  async function handleDownloadZip() {
+    if (!run) return;
+    setActionError(null);
+    setZipping(true);
+    try {
+      const games = await Promise.all(run.games.map((g) => api.getGame(runId, g.gameIndex)));
+      const pad = String(run.games.length).length;
+
+      const summaryLines = [
+        `Run ${run.runId}`,
+        `${new Date(run.createdAt).toLocaleString()}`,
+        `Players: ${run.playerNames.map(shortName).join(" vs ")}`,
+        `${run.completedGames}/${run.requestedGames} games completed`,
+        "",
+        "Results:",
+        ...Object.entries(run.winsByPlayer)
+          .filter(([, wins]) => wins > 0)
+          .map(([player, wins]) => `  ${player === "Draw" ? "Draws" : shortName(player)}: ${wins}`),
+      ];
+
+      const files = [
+        { name: "00-run-summary.txt", text: summaryLines.join("\n") },
+        ...games.map((game) => {
+          const header = [
+            `Game ${game.gameIndex}: ${game.isDraw ? "Draw" : `${shortName(game.winnerName ?? "?")} won`}`,
+            `Players: ${run.playerNames.map(shortName).join(" vs ")}`,
+            `${(game.durationMs / 1000).toFixed(1)}s · ${game.turningPoints.length} turning point(s) flagged`,
+          ].join("\n");
+          const text = `${header}\n\n${formatStoryAsText(game.analyticsEvents ?? [])}`;
+          return { name: `game-${String(game.gameIndex).padStart(pad, "0")}.txt`, text };
+        }),
+      ];
+
+      downloadBlob(createZip(files), `${run.runId}-game-logs.zip`);
+    } catch (err) {
+      setActionError(String((err as Error).message ?? err));
+    } finally {
+      setZipping(false);
+    }
+  }
+
   if (error)
     return (
       <p className="error">
@@ -162,6 +206,11 @@ export function RunDetailView({
         {run.games.length > 0 && (
           <button type="button" className="secondary" onClick={handlePrint}>
             Download PDF report
+          </button>
+        )}
+        {run.games.length > 0 && (
+          <button type="button" className="secondary" onClick={handleDownloadZip} disabled={zipping}>
+            {zipping ? "Zipping..." : "Download all game logs (.zip)"}
           </button>
         )}
       </div>
