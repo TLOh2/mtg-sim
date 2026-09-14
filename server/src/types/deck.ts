@@ -2,7 +2,7 @@
 // Kept deliberately decoupled from any single source's (Moxfield/Archidekt)
 // response shape - each importer's job is to produce one of these.
 
-export type DeckSourceType = "moxfield" | "archidekt";
+export type DeckSourceType = "moxfield" | "archidekt" | "tappedout";
 
 export interface CardRef {
   name: string;

@@ -16,6 +16,10 @@ const sauronExport = readFileSync(
   path.join(here, "..", "..", "fixtures", "archidekt-sauron-deck.txt"),
   "utf-8",
 );
+const nobilityExport = readFileSync(
+  path.join(here, "..", "..", "fixtures", "tappedout-nobility-are-athirst-deck.csv"),
+  "utf-8",
+);
 
 test("parseMoxfieldTextExport finds the one commander, positioned first and out of order", () => {
   const deck = parseMoxfieldTextExport(eowynExport, "Ayo, Win");
@@ -98,4 +102,53 @@ test("parseMoxfieldTextExport handles Archidekt's 'Nx' quantity and '//' MDFC se
   const preciousRing = deck.mainboard.find((c) => c.name.startsWith("My Precious"));
   assert.equal(preciousRing?.name, "My Precious");
   assert.ok(!deck.mainboard.some((c) => c.name.includes("Allure of Power")));
+});
+
+// TappedOut's CSV export (Export/Download -> CSV), captured from a real
+// public deck ("The Nobility Are Athirst" by Mortlocke) - the only one of
+// TappedOut's export formats that actually marks the commander (a literal
+// "True" in the trailing Commander column). See moxfieldText.ts's module
+// doc comment for why the other two formats (plain Text, Markdown/Reddit)
+// were dead ends.
+
+test("parseMoxfieldTextExport detects TappedOut's CSV via its header and finds the commander via the Commander column", () => {
+  const deck = parseMoxfieldTextExport(nobilityExport, "The Nobility Are Athirst");
+  assert.equal(deck.sourceType, "tappedout");
+  assert.equal(deck.commander.length, 1);
+  assert.equal(deck.commander[0].name, "Edgar Markov");
+  assert.equal(deck.commander[0].setCode, "C17");
+  // TappedOut's CSV never gives a collector number, only a set code.
+  assert.equal(deck.commander[0].collectorNumber, null);
+});
+
+test("parseMoxfieldTextExport gets the full mainboard from TappedOut's CSV, excluding the commander", () => {
+  const deck = parseMoxfieldTextExport(nobilityExport, "The Nobility Are Athirst");
+  // 85 distinct card lines total (100 cards counting quantity) minus the 1 commander line = 84.
+  assert.equal(deck.mainboard.length, 84);
+  assert.ok(!deck.mainboard.some((c) => c.name === "Edgar Markov"));
+  const totalQuantity = deck.mainboard.reduce((sum, c) => sum + c.quantity, 0) + deck.commander[0].quantity;
+  assert.equal(totalQuantity, 100);
+});
+
+test("parseMoxfieldTextExport handles TappedOut's CSV-quoted names containing a comma", () => {
+  const deck = parseMoxfieldTextExport(nobilityExport, "The Nobility Are Athirst");
+  const agadeem = deck.mainboard.find((c) => c.name === "Agadeem, the Undercrypt");
+  assert.equal(agadeem?.setCode, "ZNR");
+  const sorin = deck.mainboard.find((c) => c.name === "Sorin, Imperious Bloodlord");
+  assert.equal(sorin?.setCode, "INR");
+});
+
+test("parseMoxfieldTextExport falls back to a null setCode for TappedOut rows with a blank Printing column", () => {
+  const deck = parseMoxfieldTextExport(nobilityExport, "The Nobility Are Athirst");
+  const sanguineBond = deck.mainboard.find((c) => c.name === "Sanguine Bond");
+  assert.equal(sanguineBond?.setCode, null);
+});
+
+test("parseMoxfieldTextExport output from TappedOut's CSV converts to a valid-looking .dck (name-only lines, since there's no collector number)", () => {
+  const deck = parseMoxfieldTextExport(nobilityExport, "The Nobility Are Athirst");
+  const dck = toDck(deck);
+  assert.match(dck, /\[Commander\]/);
+  assert.match(dck, /^1 Edgar Markov$/m);
+  assert.match(dck, /^3 Plains$/m);
+  assert.match(dck, /^14 Swamp$/m);
 });

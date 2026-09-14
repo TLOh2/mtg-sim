@@ -87,7 +87,13 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
           <strong>Export deck</strong> &rarr; <strong>Copy</strong> (the default "Text" export works as-is -
           no settings to change).
         </p>
-        <p className="muted">Both formats are auto-detected, so there's no need to say which one it is.</p>
+        <p>
+          <strong>TappedOut:</strong> on the deck page, click <strong>Actions</strong> &rarr;{" "}
+          <strong>Download / Export / Embed Code</strong>, pick <strong>CSV</strong> from the dropdown, then
+          copy the result (TappedOut's plain "Text" export doesn't mark which card is the commander, so CSV
+          is the one that actually works here).
+        </p>
+        <p className="muted">All three formats are auto-detected, so there's no need to say which one it is.</p>
       </details>
 
       {slots.map((slot, i) => (
