@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { CardCastCount, DeckAggregateStats, RunDetail, RunStats, SpellsByRoundPoint } from "../types";
+import type { Award, CardCastCount, DeckAggregateStats, RunDetail, RunStats, SpellsByRoundPoint } from "../types";
 import { ThreatMatrixTable } from "./ThreatMatrix";
 import { StatusBadge, WinRateBar, shortName } from "./RunList";
 import { HorizontalBarChart, LineChart } from "./Charts";
@@ -160,6 +160,7 @@ export function RunDetailView({
               aggregate={stats.aggregate}
               cardCastCounts={stats.cardCastCounts}
               neverCast={stats.neverCast}
+              awards={stats.awards}
               threatMatrix={stats.threatMatrix}
               spellsByRound={stats.spellsByRound}
               totalGames={run.completedGames}
@@ -197,6 +198,7 @@ function DeckStatsSection({
   aggregate,
   cardCastCounts,
   neverCast,
+  awards,
   threatMatrix,
   spellsByRound,
   totalGames,
@@ -204,6 +206,7 @@ function DeckStatsSection({
   aggregate: DeckAggregateStats[];
   cardCastCounts: Record<string, CardCastCount[]>;
   neverCast: Record<string, string[]>;
+  awards: Award[];
   threatMatrix: Record<string, Record<string, number>>;
   spellsByRound: SpellsByRoundPoint[];
   totalGames: number;
@@ -219,6 +222,27 @@ function DeckStatsSection({
 
   return (
     <>
+      {awards.length > 0 && (
+        <>
+          <h3>Awards</h3>
+          <p className="stats-caveat">
+            Fun callouts from this run's own numbers, above - not a rigorous ranking, and a category is skipped
+            entirely when nobody actually did the thing (e.g. no burn damage dealt, no snapshot data to judge
+            consistency from).
+          </p>
+          <div className="awards-grid">
+            {awards.map((award) => (
+              <div className="award-card" key={award.id}>
+                <div className="award-title">{award.title}</div>
+                <div className="award-winner">{shortName(award.player)}</div>
+                <div className="award-value">{award.value}</div>
+                <div className="award-description">{award.description}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <h3>Win rate</h3>
       <HorizontalBarChart data={winRateData} valueFormatter={(v) => `${v}%`} />
 

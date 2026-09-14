@@ -390,6 +390,8 @@ export interface DeckAggregateStats {
   /** Non-damage life loss inflicted on opponents (fetch/pain-land self-costs excluded) - see PlayerGameStats.nonDamageLifeLossDealt. Not damage, so it's reported separately from the combat/non-combat totals above rather than folded in. */
   avgNonDamageLifeLossDealt: number;
   avgFirstCombatDamageDealtTurn: number | null;
+  /** Average turnsPlayed across just the games this deck actually won (null if it hasn't won any) - "how fast does this deck close a game out when it wins," not to be confused with avgFirstCombatDamageDealtTurn (when it starts pressuring, not when it finishes). */
+  avgWinningGameTurn: number | null;
   /** 1 (won or last one standing) through however many players were in the pod - see computeFinishPosition. */
   avgFinishPosition: number | null;
   /** Average count of turns per game where a land sat unplayed in hand - "screw" if this AND avgLandsInHandAtEnd are both low, "flood" if both are high. */
@@ -587,6 +589,7 @@ export function computeRunAggregateStats(
       avgCommanderDamageDealt: avg(commanderDamageDealt) ?? 0,
       avgNonDamageLifeLossDealt: avg(nonDamageLifeLossDealt) ?? 0,
       avgFirstCombatDamageDealtTurn: avg(firstCombatDamageDealtTurns),
+      avgWinningGameTurn,
       avgFinishPosition: avg(finishPositions),
       avgMissedLandDrops: avg(missedLandDrops) ?? 0,
       avgLandsInHandAtEnd: avg(landsInHandAtEnd) ?? 0,

@@ -463,6 +463,47 @@ button.secondary {
   font-size: 0.78rem;
 }
 
+/* Awards */
+
+.awards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.award-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.award-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+}
+
+.award-winner {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.award-value {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.award-description {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
 /* Deck diagnostics */
 
 .deck-stats-table {

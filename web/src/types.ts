@@ -150,6 +150,7 @@ export interface DeckAggregateStats {
   avgCommanderDamageDealt: number;
   avgNonDamageLifeLossDealt: number;
   avgFirstCombatDamageDealtTurn: number | null;
+  avgWinningGameTurn: number | null;
   avgFinishPosition: number | null;
   avgMissedLandDrops: number;
   avgLandsInHandAtEnd: number;
@@ -204,4 +205,13 @@ export interface RunStats {
   spellsByRound: SpellsByRoundPoint[];
   /** Nonland cards in a player's actual decklist that never got cast this run - empty for runs this can't be computed for (see neverCast.ts). */
   neverCast: Record<string, string[]>;
+  awards: Award[];
+}
+
+export interface Award {
+  id: string;
+  title: string;
+  description: string;
+  player: string;
+  value: string;
 }
