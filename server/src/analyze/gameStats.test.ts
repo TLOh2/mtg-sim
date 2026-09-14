@@ -15,6 +15,21 @@ function spellCast(player: string, card: string, manaValue: number): AnalyticsEv
   return { type: "spell_cast", player, card, action: "cast", manaValue };
 }
 
+function turnSnapshot(
+  player: string,
+  fields: { handSize?: number; landsInHand?: number; landsInPlay?: number; untappedLands: number; untappedManaSources?: number },
+): AnalyticsEvent {
+  return {
+    type: "turn_snapshot",
+    player,
+    handSize: fields.handSize ?? 0,
+    landsInHand: fields.landsInHand ?? 0,
+    landsInPlay: fields.landsInPlay ?? fields.untappedLands,
+    untappedLands: fields.untappedLands,
+    ...(fields.untappedManaSources !== undefined ? { untappedManaSources: fields.untappedManaSources } : {}),
+  };
+}
+
 test("computeGameStats: avgCurveEfficiency is (mana value / round) averaged across a player's own spells", () => {
   const events: AnalyticsEvent[] = [
     turnBegan("Alice", 1),
@@ -117,6 +132,31 @@ test("computeRunAggregateStats: avgCommanderCastTurn averages the first cast per
   const alice = aggregate.find((a) => a.player === "Alice")!;
   // (3 + 3) / 2 = 3, not (3 + 8 + 3) / 3 = 4.67.
   assert.equal(alice.avgCommanderCastTurn, 3);
+});
+
+test("computeGameStats: manaThresholdTurns counts untapped mana rocks, not just lands - a Sol Ring pushes the threshold earlier than lands alone would", () => {
+  const events: AnalyticsEvent[] = [
+    turnBegan("Alice", 1),
+    // 4 untapped lands but only 4 mana sources total - reaches 5 not yet.
+    turnSnapshot("Alice", { untappedLands: 4, untappedManaSources: 4 }),
+    turnBegan("Alice", 2),
+    // Still 4 lands, but a Sol Ring (or any rock) brings total sources to 5.
+    turnSnapshot("Alice", { untappedLands: 4, untappedManaSources: 5 }),
+  ];
+  const stats = computeGameStats(0, events, PLAYERS, {});
+  const alice = stats.players.find((p) => p.player === "Alice")!;
+  assert.equal(alice.manaThresholdTurns.five, 2);
+});
+
+test("computeGameStats: turn_snapshot events without untappedManaSources (older runs) fall back to untappedLands", () => {
+  const events: AnalyticsEvent[] = [
+    turnBegan("Alice", 1),
+    turnSnapshot("Alice", { untappedLands: 5 }), // no untappedManaSources field at all
+  ];
+  const stats = computeGameStats(0, events, PLAYERS, {});
+  const alice = stats.players.find((p) => p.player === "Alice")!;
+  assert.equal(alice.turnSnapshots[0].untappedManaSources, 5);
+  assert.equal(alice.manaThresholdTurns.five, 1);
 });
 
 test("computeRunSpellsByRoundPerPlayer: averages (sums / gamesPlayed) rather than summing raw totals", () => {

@@ -87,6 +87,7 @@ export interface TurnSnapshot {
   landsInHand: number;
   landsInPlay: number;
   untappedLands: number;
+  untappedManaSources: number;
 }
 
 export interface ManaThresholdTurns {

@@ -321,14 +321,15 @@ function DeckStatsSection({
           <h3>Mana &amp; consistency</h3>
           <p className="stats-caveat">
             From per-turn hand/mana snapshots taken entering each player's own Main 2 - after that turn's own land
-            drop and Main 1 spells, so "reaches N mana" reflects mana actually available that turn (see
-            AnalyticsEventLogger.java) - older runs won't have this data. "Missed land drops" counts turns with a
-            land sitting unplayed in
-            hand. "Mana efficiency" is mana spent that turn / untapped lands available that turn, averaged - above
-            1 means rocks/dorks are pulling weight beyond lands alone, below 1 means mana's going unused. "Curve
-            efficiency" is a spell's mana value / the round it was cast in, averaged across every spell cast -
-            above 1 means routinely landing above-curve spells (ramp paying off), below 1 means running behind
-            curve.
+            drop and Main 1 spells, so this reflects mana actually available that turn (see
+            AnalyticsEventLogger.java) - older runs won't have this data. "Reaches N mana" and "mana efficiency"
+            both count every untapped mana source - lands, rocks, dorks, anything with a mana ability - not just
+            lands, so a heavily-ramped deck's real curve shows up here instead of reading like a land-only deck.
+            Each source counts once regardless of how much it actually taps for, so a Sol Ring-heavy turn can
+            still read efficiency a touch low even when nothing's being left unused. "Missed land drops" counts
+            turns with a land sitting unplayed in hand. "Curve efficiency" is a spell's mana value / the round it
+            was cast in, averaged across every spell cast - above 1 means routinely landing above-curve spells
+            (ramp paying off), below 1 means running behind curve.
           </p>
           <table className="deck-stats-table">
             <thead>

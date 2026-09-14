@@ -40,6 +40,8 @@ export interface TurnSnapshot {
   landsInHand: number;
   landsInPlay: number;
   untappedLands: number;
+  /** Untapped lands + untapped mana rocks/dorks/anything else with a mana ability - see AnalyticsEventLogger.java's hasManaAbility. What "reaches N mana" and mana efficiency actually mean; untappedLands alone undercounts any deck that ramps. */
+  untappedManaSources: number;
 }
 
 export interface ManaThresholdTurns {
@@ -76,9 +78,9 @@ export interface PlayerGameStats {
   turnSnapshots: TurnSnapshot[];
   /** Turns where they still had a land in hand entering Main 2 despite not playing one that turn. */
   missedLandDropTurns: number[];
-  /** First turn each untapped-lands threshold was reached, from turnSnapshots. */
+  /** First turn each untapped-mana-source threshold was reached (lands + rocks/dorks - see TurnSnapshot.untappedManaSources), from turnSnapshots. */
   manaThresholdTurns: ManaThresholdTurns;
-  /** Average of (mana value of spells cast that turn / untapped lands available that turn) across turns with >0 available mana - >1 means spending more than lands alone provide (rocks/dorks helping), <1 means leaving mana up. */
+  /** Average of (mana value of spells cast that turn / untapped mana sources available that turn) across turns with >0 available - >1 means spending more than that count alone would suggest, <1 means leaving mana up. Each source counts once regardless of how much mana it actually taps for (a land, a signet, and Sol Ring - which really taps for 2 - all count as "1 source"), so a Sol Ring-heavy turn can still read efficiency a bit low even when nothing's being left unused; see AnalyticsEventLogger.java's hasManaAbility doc comment. */
   avgManaEfficiency: number | null;
   /** Average of (a spell's mana value / the round it was cast in) across every spell cast - "curve efficiency" in the deckbuilding sense: >1 means routinely casting spells above what their round "should" support (ramp working), ~1 means playing roughly on-curve, <1 means running behind curve (screwed, or just holding up mana). Round 0 (pre-game/mulligan actions) is excluded to avoid a divide-by-zero. */
   avgCurveEfficiency: number | null;
@@ -265,7 +267,11 @@ export function computeGameStats(
         const landsInPlay = asNumber(event.landsInPlay);
         const untappedLands = asNumber(event.untappedLands);
         if (stats && handSize !== null && landsInHand !== null && landsInPlay !== null && untappedLands !== null) {
-          stats.turnSnapshots.push({ turn: currentTurn, handSize, landsInHand, landsInPlay, untappedLands });
+          // Older runs predate untappedManaSources (see AnalyticsEventLogger.java) -
+          // fall back to untappedLands so those runs still get a (land-only)
+          // reading rather than losing mana-threshold/efficiency data entirely.
+          const untappedManaSources = asNumber(event.untappedManaSources) ?? untappedLands;
+          stats.turnSnapshots.push({ turn: currentTurn, handSize, landsInHand, landsInPlay, untappedLands, untappedManaSources });
         }
         break;
       }
@@ -353,18 +359,18 @@ export function computeGameStats(
       if (snap.landsInHand > 0 && !landPlayedTurns.has(turnKey(stats.player, snap.turn))) {
         stats.missedLandDropTurns.push(snap.turn);
       }
-      if (stats.manaThresholdTurns.five === null && snap.untappedLands >= 5) {
+      if (stats.manaThresholdTurns.five === null && snap.untappedManaSources >= 5) {
         stats.manaThresholdTurns.five = snap.turn;
       }
-      if (stats.manaThresholdTurns.seven === null && snap.untappedLands >= 7) {
+      if (stats.manaThresholdTurns.seven === null && snap.untappedManaSources >= 7) {
         stats.manaThresholdTurns.seven = snap.turn;
       }
-      if (stats.manaThresholdTurns.ten === null && snap.untappedLands >= 10) {
+      if (stats.manaThresholdTurns.ten === null && snap.untappedManaSources >= 10) {
         stats.manaThresholdTurns.ten = snap.turn;
       }
-      if (snap.untappedLands > 0) {
+      if (snap.untappedManaSources > 0) {
         const spent = manaSpentByTurn.get(turnKey(stats.player, snap.turn)) ?? 0;
-        efficiencies.push(spent / snap.untappedLands);
+        efficiencies.push(spent / snap.untappedManaSources);
       }
     }
     stats.avgManaEfficiency = avg(efficiencies);
