@@ -177,6 +177,11 @@ export interface DeckRunHistoryPoint {
   bracketEstimate: number;
 }
 
+export interface GameDurationStats {
+  sampleSize: number;
+  avgFractionOfClock: number | null;
+}
+
 export interface DeckLeaderboardEntry {
   deckKey: string;
   label: string;

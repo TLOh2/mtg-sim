@@ -3,6 +3,7 @@ import type {
   DeckLibraryEntry,
   DeckSelection,
   GameDetail,
+  GameDurationStats,
   RunDetail,
   RunListEntry,
   RunStats,
@@ -39,4 +40,5 @@ export const api = {
   cancelRun: (runId: string) => postJson<{ cancelled: boolean }>(`/api/runs/${encodeURIComponent(runId)}/cancel`, {}),
   listDecks: () => getJson<DeckLibraryEntry[]>("/api/decks"),
   getDeckLeaderboard: () => getJson<DeckLeaderboardEntry[]>("/api/decks/leaderboard"),
+  getGameDurationStats: () => getJson<GameDurationStats>("/api/stats/game-duration"),
 };

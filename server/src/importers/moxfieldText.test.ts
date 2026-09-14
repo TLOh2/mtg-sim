@@ -12,6 +12,10 @@ const eowynExport = readFileSync(
   path.join(here, "..", "..", "fixtures", "moxfield-eowyn-deck.txt"),
   "utf-8",
 );
+const sauronExport = readFileSync(
+  path.join(here, "..", "..", "fixtures", "archidekt-sauron-deck.txt"),
+  "utf-8",
+);
 
 test("parseMoxfieldTextExport finds the one commander, positioned first and out of order", () => {
   const deck = parseMoxfieldTextExport(eowynExport, "Ayo, Win");
@@ -62,4 +66,36 @@ test("parseMoxfieldTextExport output converts to a valid-looking .dck", () => {
 
 test("parseMoxfieldTextExport throws a clear error on unparseable input", () => {
   assert.throws(() => parseMoxfieldTextExport("not a decklist at all", "bad deck"), /no parseable card lines/);
+});
+
+// Archidekt's Export -> Text -> Copy, every setting left at its default
+// (fixture captured with a cleared localStorage, so this is genuinely what
+// a friend who's never touched the Export dialog gets - see moxfieldText.ts's
+// module doc comment for how this differs from Moxfield's own shape).
+
+test("parseMoxfieldTextExport detects Archidekt's default export via its [Category] tags and finds the commander via [Commander]", () => {
+  const deck = parseMoxfieldTextExport(sauronExport, "Sauron, the Dark Lord");
+  assert.equal(deck.sourceType, "archidekt");
+  assert.equal(deck.commander.length, 1);
+  assert.equal(deck.commander[0].name, "Sauron, the Dark Lord");
+  assert.equal(deck.commander[0].setCode, "ltr");
+  assert.equal(deck.commander[0].collectorNumber, "329");
+});
+
+test("parseMoxfieldTextExport excludes Archidekt's {noDeck} out-of-deck extras (tokens etc.) from the mainboard", () => {
+  const deck = parseMoxfieldTextExport(sauronExport, "Sauron, the Dark Lord");
+  assert.ok(!deck.mainboard.some((c) => c.name === "Orc Army"));
+  assert.ok(!deck.mainboard.some((c) => c.name === "Wraith"));
+  // 88 lines total - 1 commander - 2 out-of-deck extras = 85.
+  assert.equal(deck.mainboard.length, 85);
+});
+
+test("parseMoxfieldTextExport handles Archidekt's 'Nx' quantity and '//' MDFC separator", () => {
+  const deck = parseMoxfieldTextExport(sauronExport, "Sauron, the Dark Lord");
+  const nazgul = deck.mainboard.find((c) => c.name === "Nazgûl");
+  assert.equal(nazgul?.quantity, 9);
+
+  const preciousRing = deck.mainboard.find((c) => c.name.startsWith("My Precious"));
+  assert.equal(preciousRing?.name, "My Precious");
+  assert.ok(!deck.mainboard.some((c) => c.name.includes("Allure of Power")));
 });

@@ -506,6 +506,24 @@ button.secondary {
   margin-top: -4px;
 }
 
+.paste-format-help {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin: -4px 0 14px;
+  font-size: 0.85rem;
+}
+
+.paste-format-help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.paste-format-help p {
+  margin: 8px 0;
+}
+
 .threat-matrix-wrap {
   overflow-x: auto;
   margin-bottom: 16px;

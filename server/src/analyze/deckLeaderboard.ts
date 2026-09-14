@@ -104,3 +104,29 @@ export function computeDeckLeaderboard(runs: RunSummary[]): DeckLeaderboardEntry
   results.sort((a, b) => b.overallWinRate - a.overallWinRate);
   return results;
 }
+
+export interface GameDurationStats {
+  sampleSize: number;
+  /** avg(actual game duration / that run's clock setting) across every completed game with a known clock - a fraction rather than a raw duration, so it stays meaningful across runs that used different clockSeconds. Multiply by a prospective run's own games*clockSeconds to estimate how long it'll actually take. */
+  avgFractionOfClock: number | null;
+}
+
+/**
+ * How long games actually take relative to the clock they were given -
+ * powers the "estimated time" shown before starting a new run (see
+ * NewRunForm.tsx). games*clockSeconds alone is a worst-case ceiling (every
+ * game timing out); this is closer to what typically happens.
+ */
+export function computeGameDurationStats(runs: RunSummary[]): GameDurationStats {
+  const fractions: number[] = [];
+  for (const run of runs) {
+    if (run.status !== "complete" || !run.clockSeconds) continue;
+    for (const g of run.games) {
+      fractions.push(g.durationMs / 1000 / run.clockSeconds);
+    }
+  }
+  return {
+    sampleSize: fractions.length,
+    avgFractionOfClock: fractions.length > 0 ? avg(fractions) : null,
+  };
+}

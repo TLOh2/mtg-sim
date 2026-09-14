@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { DeckLibraryEntry, DeckSelection } from "../types";
+import type { DeckLibraryEntry, DeckSelection, GameDurationStats } from "../types";
 
 interface SlotState {
   deckId: string; // "" means "paste new" for this slot
@@ -10,6 +10,21 @@ interface SlotState {
 
 const emptySlot = (): SlotState => ({ deckId: "", label: "", decklistText: "" });
 
+// Used only when there's no history yet to estimate from (computed from
+// what we've actually observed in testing: games routinely finish well
+// under the clock) - clearly labeled as a guess in the UI, not shown as if
+// it were measured.
+const DEFAULT_FRACTION_OF_CLOCK = 0.3;
+
+function formatDuration(totalSeconds: number): string {
+  const minutes = Math.round(totalSeconds / 60);
+  if (minutes < 1) return "under a minute";
+  if (minutes < 60) return `~${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `~${hours}h${rest > 0 ? ` ${rest}m` : ""}`;
+}
+
 export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string) => void; onCancel: () => void }) {
   const [decks, setDecks] = useState<DeckLibraryEntry[] | null>(null);
   const [slots, setSlots] = useState<SlotState[]>([emptySlot(), emptySlot(), emptySlot(), emptySlot()]);
@@ -17,9 +32,11 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
   const [clockSeconds, setClockSeconds] = useState(180);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [durationStats, setDurationStats] = useState<GameDurationStats | null>(null);
 
   useEffect(() => {
     api.listDecks().then(setDecks).catch(() => setDecks([]));
+    api.getGameDurationStats().then(setDurationStats).catch(() => setDurationStats(null));
   }, []);
 
   function updateSlot(i: number, patch: Partial<SlotState>) {
@@ -56,10 +73,22 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
     <form className="new-run-form" onSubmit={handleSubmit}>
       <h3>New run</h3>
       <p className="muted">
-        Pick a saved deck for each player, or choose <strong>Paste new...</strong> and paste a Moxfield
-        decklist (Export &rarr; <strong>Copy for Moxfield</strong> - not Arena/MTGO, those drop cards). A deck
-        you paste here gets saved automatically, so you won't need to paste it again next time.
+        Pick a saved deck for each player, or choose <strong>Paste new...</strong> and paste a decklist. A
+        deck you paste here gets saved automatically, so you won't need to paste it again next time.
       </p>
+      <details className="paste-format-help">
+        <summary>What should I paste?</summary>
+        <p>
+          <strong>Moxfield:</strong> on the deck page, click <strong>Export</strong> &rarr;{" "}
+          <strong>Copy for Moxfield</strong> (not Arena/MTGO - those drop cards).
+        </p>
+        <p>
+          <strong>Archidekt:</strong> on the deck page, click <strong>More</strong> &rarr;{" "}
+          <strong>Export deck</strong> &rarr; <strong>Copy</strong> (the default "Text" export works as-is -
+          no settings to change).
+        </p>
+        <p className="muted">Both formats are auto-detected, so there's no need to say which one it is.</p>
+      </details>
 
       {slots.map((slot, i) => (
         <div key={i} className="deck-input-field">
@@ -125,6 +154,24 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
           />
         </label>
       </div>
+
+      <p className="stats-caveat">
+        {(() => {
+          const worstCaseSeconds = games * clockSeconds;
+          const fraction = durationStats?.avgFractionOfClock ?? DEFAULT_FRACTION_OF_CLOCK;
+          const typicalSeconds = worstCaseSeconds * fraction;
+          const basis =
+            durationStats && durationStats.sampleSize > 0
+              ? `based on ${durationStats.sampleSize} past game${durationStats.sampleSize === 1 ? "" : "s"}`
+              : "a rough guess - no past games yet to base this on";
+          return (
+            <>
+              Estimated time: {formatDuration(typicalSeconds)} typical ({basis}), up to{" "}
+              {formatDuration(worstCaseSeconds)} worst case if every game ran the full clock.
+            </>
+          );
+        })()}
+      </p>
 
       {error && <p className="error">{error}</p>}
 

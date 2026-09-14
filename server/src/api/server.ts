@@ -24,7 +24,7 @@ import {
   computeRunSpellsByRound,
   computeRunThreatMatrix,
 } from "../analyze/gameStats.js";
-import { computeDeckLeaderboard } from "../analyze/deckLeaderboard.js";
+import { computeDeckLeaderboard, computeGameDurationStats } from "../analyze/deckLeaderboard.js";
 import { listDecks } from "../decks/deckLibrary.js";
 import type { DeckSelection } from "../decks/types.js";
 import type { RunSummary } from "../analyze/types.js";
@@ -146,6 +146,16 @@ const server = createServer(async (req, res) => {
       .map(loadRun)
       .filter((r): r is RunSummary => r !== null);
     sendJson(res, 200, computeDeckLeaderboard(runs));
+    return;
+  }
+
+  if (parts[1] === "stats" && parts[2] === "game-duration" && parts.length === 3) {
+    // Powers the "estimated time" shown on the New Run form before
+    // submitting - see deckLeaderboard.ts's computeGameDurationStats.
+    const runs = listRunIds()
+      .map(loadRun)
+      .filter((r): r is RunSummary => r !== null);
+    sendJson(res, 200, computeGameDurationStats(runs));
     return;
   }
 
