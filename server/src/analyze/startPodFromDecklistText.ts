@@ -34,7 +34,7 @@ async function resolveAndStage(
   playerIndex: number,
   stagingDir: string,
 ): Promise<{ label: string; dckPath: string; deckId: string }> {
-  let label: string;
+  let providedLabel: string | undefined;
   let decklistText: string;
   let deckId: string;
 
@@ -44,18 +44,25 @@ async function resolveAndStage(
     if (!saved) {
       throw new Error(`no saved deck with id "${selection.deckId}"`);
     }
-    label = saved.label;
+    providedLabel = saved.label;
     decklistText = saved.decklistText;
     deckId = saved.id;
     isFreshPaste = false;
   } else {
-    label = selection.label.trim() || `Player ${playerIndex + 1}`;
+    providedLabel = selection.label.trim() || undefined;
     decklistText = selection.decklistText;
     deckId = ""; // filled in below, only once the paste has parsed successfully
     isFreshPaste = true;
   }
 
-  const deck = parseMoxfieldTextExport(decklistText, label);
+  // Parse first (a placeholder is fine here - only used if this errors out
+  // before a real label is known), then fall back to the commander's own
+  // name rather than a bare "Player N" when nobody typed one in - "Edgar
+  // Markov" tells you which deck you're looking at; "Player 2" doesn't.
+  const deck = parseMoxfieldTextExport(decklistText, providedLabel ?? `Player ${playerIndex + 1}`);
+  const commanderName = deck.commander.map((c) => c.name).join(" + ") || undefined;
+  const label = providedLabel ?? commanderName ?? `Player ${playerIndex + 1}`;
+  deck.name = label;
 
   if (isFreshPaste) {
     deckId = saveDeck(label, decklistText).id;
