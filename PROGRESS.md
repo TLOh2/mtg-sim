@@ -588,9 +588,36 @@ POST /api/runs → complete pipeline, plus covers pasting a fresh deck and
 confirming it appears in `/api/decks` afterward, an unknown `deckId` failing
 clearly, and garbage decklists neither succeeding nor polluting the library.
 
-**Still ahead:** you're going to send me the rest of your decks to bake in
-as more presets - once I have them, I'll add them to
-`server/presets/decks/` the same way and push.
+### Update: baked in the rest of your decks (7 total)
+
+You sent all of them: Pantlaza (dinosaurs), Inspirit/Kilo (two related
+artifact decks sharing a lot of the same recent Edge of Eternities cards,
+different commanders), Saruman (Lord of the Rings storm/burn), Killian
+(auras/enchantments), Sméagol (reanimator/mill), and Smaug (dragons/rakdos).
+
+Didn't just trust the parser's own success on these - a real risk here is
+recency: several of these decks lean heavily on very new sets (Edge of
+Eternities/EOE and EOC, Aetherdrift/DFT, Tarkir Dragonstorm/TDM), and
+Forge's card database is pinned to a specific commit, so there was a real
+chance some of these cards wouldn't exist in Forge's data yet even though
+the text parses fine. Checked properly: parsed all 7 first (fast, catches
+commander mis-detection or leftover unparsed MDFC names - all 7 came back
+clean, one commander each, totals right around 100), then ran all 7 through
+actual Forge games (each paired 1v1 against a real precon) - zero card-load
+errors across any of them, all played to real completion. Only then baked
+them into `server/presets/decks/` (7 new files, ids reflecting each
+commander/archetype - `pantlaza-dinosaurs`, `inspirit-artifacts`,
+`saruman-storm`, `kilo-apogee`, `killian-auras`, `smeagol-reanimator`,
+`smaug-dragons`).
+
+Went one step further before calling it done: ran an actual 4-*different*-decks
+pod through the real dashboard API (Pantlaza vs. Saruman vs. Kilo vs. Smaug,
+picked by id, exactly how you'd actually use this) rather than just 4 copies
+of one deck like the smoke test does - completed for real, Saruman won.
+That's the realistic use case, not just a synthetic self-check.
+
+`server/presets/` now has 8 decks total (7 new + the original Éowyn one),
+all committed, all durable across redeploys for free.
 
 ## Phase 5 — deprioritized by you; dropped from active scope
 
