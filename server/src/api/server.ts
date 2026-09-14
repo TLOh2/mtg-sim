@@ -25,6 +25,7 @@ import {
   computeRunThreatMatrix,
 } from "../analyze/gameStats.js";
 import { computeDeckLeaderboard, computeGameDurationStats } from "../analyze/deckLeaderboard.js";
+import { computeNeverCastCards } from "../analyze/neverCast.js";
 import { listDecks } from "../decks/deckLibrary.js";
 import type { DeckSelection } from "../decks/types.js";
 import type { RunSummary } from "../analyze/types.js";
@@ -297,7 +298,13 @@ const server = createServer(async (req, res) => {
     const cardCastCounts = computeCardCastCounts(run.games, run.playerNames);
     const threatMatrix = computeRunThreatMatrix(games);
     const spellsByRound = computeRunSpellsByRound(games);
-    sendJson(res, 200, { games, aggregate, cardCastCounts, threatMatrix, spellsByRound });
+    const neverCast = await computeNeverCastCards(
+      run.playerNames,
+      run.deckSelections,
+      run.commandersByPlayer ?? {},
+      cardCastCounts,
+    );
+    sendJson(res, 200, { games, aggregate, cardCastCounts, threatMatrix, spellsByRound, neverCast });
     return;
   }
 

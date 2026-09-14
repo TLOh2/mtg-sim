@@ -629,29 +629,46 @@ button.danger:hover {
 }
 
 /* PDF report: window.print() on the run detail page (RunDetailView's
-   "Download PDF report" button) - forces light mode regardless of the
-   viewer's theme and hides everything that's only useful on-screen
-   (nav, buttons, the back link), so "Save as PDF" in the print dialog
-   produces a clean, shareable report with no app chrome. */
+   "Download PDF report" button) - hides everything that's only useful
+   on-screen (nav, buttons, the back link), so "Save as PDF" in the print
+   dialog produces a clean, shareable report with no app chrome.
+   Forces dark mode (not light) regardless of the viewer's theme - most
+   people are downloading this to keep, not to physically print it, and
+   the whole UI (pills, badges, chips) is designed and tested against the
+   dark palette, so that's the one guaranteed to look right everywhere.
+   Every variable needs !important: :root[data-theme="dark"]/"light"
+   aren't gated by @media print, so a plain (non-!important) declaration
+   here loses the specificity fight against them and only half-applies -
+   confirmed live (a real "possible mana issues" pill printed unreadable,
+   dark text on a light background, because only some variables actually
+   won). print-color-adjust forces backgrounds to actually print - most
+   browsers strip them by default ("Background graphics" unchecked in the
+   print dialog), which would otherwise make dark-on-dark text vanish
+   against a plain white page regardless of the color choice above. */
 @media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   :root {
-    color-scheme: light;
-    --bg: #ffffff;
-    --panel: #ffffff;
-    --border: #ccc;
-    --text: #000000;
-    --muted: #444444;
-    --accent: #5433d6;
-    --turning-point: #fff3cd;
-    --turning-point-border: #f0c14b;
-    --row-hover: transparent;
-    --table-head-bg: #f0f0f0;
-    --chip-bg: #f0ecff;
-    --chip-border: #d9d0ff;
-    --log-bg: #f5f5f5;
-    --log-text: #111111;
-    --chart-grid: #cccccc;
-    --chart-axis-text: #444444;
+    color-scheme: dark !important;
+    --bg: #16171c !important;
+    --panel: #1e2027 !important;
+    --border: #33353e !important;
+    --text: #e7e8ec !important;
+    --muted: #9a9ca6 !important;
+    --accent: #9c85ff !important;
+    --turning-point: #4a3c14 !important;
+    --turning-point-border: #f0c14b !important;
+    --row-hover: #262838 !important;
+    --table-head-bg: #23252d !important;
+    --chip-bg: #2a2740 !important;
+    --chip-border: #453d70 !important;
+    --log-bg: #0b0c0f !important;
+    --log-text: #d8dee9 !important;
+    --chart-grid: #33353e !important;
+    --chart-axis-text: #9a9ca6 !important;
   }
 
   .app-header,

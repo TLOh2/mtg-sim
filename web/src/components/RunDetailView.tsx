@@ -159,6 +159,7 @@ export function RunDetailView({
             <DeckStatsSection
               aggregate={stats.aggregate}
               cardCastCounts={stats.cardCastCounts}
+              neverCast={stats.neverCast}
               threatMatrix={stats.threatMatrix}
               spellsByRound={stats.spellsByRound}
               totalGames={run.completedGames}
@@ -195,12 +196,14 @@ export function RunDetailView({
 function DeckStatsSection({
   aggregate,
   cardCastCounts,
+  neverCast,
   threatMatrix,
   spellsByRound,
   totalGames,
 }: {
   aggregate: DeckAggregateStats[];
   cardCastCounts: Record<string, CardCastCount[]>;
+  neverCast: Record<string, string[]>;
   threatMatrix: Record<string, Record<string, number>>;
   spellsByRound: SpellsByRoundPoint[];
   totalGames: number;
@@ -399,6 +402,37 @@ function DeckStatsSection({
           </div>
         </details>
       ))}
+
+      {Object.keys(neverCast).length > 0 && (
+        <>
+          <h3>Never cast</h3>
+          <p className="stats-caveat">
+            Nonland cards in each deck's actual decklist that never got cast across {totalGames} game
+            {totalGames === 1 ? "" : "s"} - dead combo pieces, cards the AI kept drawing but never found a use
+            for. Excludes the commander (tracked separately above) and lands (via Forge's own card database, not
+            a name guess). Only available for runs started from a saved deck.
+          </p>
+          {aggregate
+            .filter((a) => neverCast[a.player] !== undefined)
+            .map((a) => (
+              <details className="cards-cast-details" key={a.player}>
+                <summary>
+                  {shortName(a.player)} ({neverCast[a.player].length} never cast)
+                </summary>
+                <div className="bar-chart">
+                  {neverCast[a.player].map((card) => (
+                    <div className="bar-chart-row" key={card}>
+                      <span className="bar-chart-label" title={card}>
+                        {card}
+                      </span>
+                    </div>
+                  ))}
+                  {neverCast[a.player].length === 0 && <p className="muted">Every nonland card got cast at least once.</p>}
+                </div>
+              </details>
+            ))}
+        </>
+      )}
     </>
   );
 }

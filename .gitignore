@@ -22,6 +22,11 @@ data/runs/*
 data/decks/*
 !data/decks/.gitkeep
 
+# Card name -> type lookup cache (see server/src/cardTypes/lookupCardTypes.ts)
+# - regenerable from Forge's own card database via engine/run-cardtypes.sh,
+# not source.
+data/card-types-cache.json
+
 # OS/editor cruft
 .DS_Store
 *.log

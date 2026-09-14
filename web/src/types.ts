@@ -202,4 +202,6 @@ export interface RunStats {
   cardCastCounts: Record<string, CardCastCount[]>;
   threatMatrix: Record<string, Record<string, number>>;
   spellsByRound: SpellsByRoundPoint[];
+  /** Nonland cards in a player's actual decklist that never got cast this run - empty for runs this can't be computed for (see neverCast.ts). */
+  neverCast: Record<string, string[]>;
 }
