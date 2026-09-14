@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { GameDetail, GameStats } from "../types";
 import { shortName } from "./RunList";
-import { GameStoryView } from "./GameStoryView";
+import { GameStoryView, formatStoryAsText } from "./GameStoryView";
 import { LineChart } from "./Charts";
 
 type Tab = "story" | "raw";
@@ -20,6 +20,7 @@ export function GameLogView({
   const [stats, setStats] = useState<GameStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("story");
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
 
   useEffect(() => {
     setGame(null);
@@ -33,6 +34,26 @@ export function GameLogView({
 
   if (error) return <p className="error">Couldn't load game {gameIndex}: {error}</p>;
   if (!game) return <p className="muted">Loading...</p>;
+
+  async function handleCopySummary() {
+    if (!game) return;
+    const players = stats?.players.map((p) => shortName(p.player)) ?? [];
+    const header = [
+      `Game ${game.gameIndex}: ${game.isDraw ? "Draw" : `${shortName(game.winnerName ?? "?")} won`}`,
+      players.length > 0 ? `Players: ${players.join(" vs ")}` : null,
+      `${(game.durationMs / 1000).toFixed(1)}s · ${game.turningPoints.length} turning point(s) flagged`,
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
+    const text = `${header}\n\n${formatStoryAsText(game.analyticsEvents ?? [])}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    }
+    setTimeout(() => setCopyState("idle"), 2000);
+  }
 
   const turningPointByEventIndex = new Map(game.turningPoints.map((tp) => [tp.eventIndex, tp]));
 
@@ -49,9 +70,14 @@ export function GameLogView({
       <button className="back-link" onClick={onBack}>
         &larr; Back to run
       </button>
-      <h2>
-        Game {game.gameIndex}: {game.isDraw ? "Draw" : `${shortName(game.winnerName ?? "?")} won`}
-      </h2>
+      <div className="run-header-actions">
+        <h2>
+          Game {game.gameIndex}: {game.isDraw ? "Draw" : `${shortName(game.winnerName ?? "?")} won`}
+        </h2>
+        <button type="button" className="secondary" onClick={handleCopySummary}>
+          {copyState === "copied" ? "Copied!" : copyState === "error" ? "Couldn't copy" : "Copy game summary"}
+        </button>
+      </div>
       <p className="muted">
         {(game.durationMs / 1000).toFixed(1)}s &middot; {game.turningPoints.length} turning point(s) flagged
       </p>
