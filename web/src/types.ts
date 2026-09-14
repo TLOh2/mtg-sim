@@ -117,6 +117,7 @@ export interface PlayerGameStats {
   missedLandDropTurns: number[];
   manaThresholdTurns: ManaThresholdTurns;
   avgManaEfficiency: number | null;
+  avgCurveEfficiency: number | null;
 }
 
 export interface EliminationEvent {
@@ -154,6 +155,7 @@ export interface DeckAggregateStats {
   avgLandsInHandAtEnd: number;
   avgManaThresholdTurns: ManaThresholdTurns;
   avgManaEfficiency: number | null;
+  avgCurveEfficiency: number | null;
   manaIssueFlag: boolean;
   powerBracketEstimate: number;
 }
@@ -190,6 +192,7 @@ export interface DeckLeaderboardEntry {
   totalWins: number;
   overallWinRate: number;
   avgBracketEstimate: number;
+  winRateStdDev: number | null;
   history: DeckRunHistoryPoint[];
 }
 

@@ -85,6 +85,22 @@ export function RunDetailView({
     }
   }
 
+  function handlePrint() {
+    // The Cards cast section is collapsed by default (<details>), and a
+    // closed <details> doesn't print its contents - force every one open
+    // for the print, then put back however the user had them once the
+    // print dialog closes (afterprint fires on both print and cancel).
+    const detailsEls = Array.from(document.querySelectorAll<HTMLDetailsElement>(".cards-cast-details"));
+    const wasOpen = detailsEls.map((d) => d.open);
+    detailsEls.forEach((d) => (d.open = true));
+    const restore = () => {
+      detailsEls.forEach((d, i) => (d.open = wasOpen[i]));
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+    window.print();
+  }
+
   if (error)
     return (
       <p className="error">
@@ -115,6 +131,11 @@ export function RunDetailView({
         {run.deckSelections && (
           <button type="button" className="secondary" onClick={handleRestart} disabled={restarting}>
             {restarting ? "Starting..." : "Restart with same decks"}
+          </button>
+        )}
+        {run.games.length > 0 && (
+          <button type="button" className="secondary" onClick={handlePrint}>
+            Download PDF report
           </button>
         )}
       </div>
@@ -249,7 +270,10 @@ function DeckStatsSection({
             From per-turn hand/mana snapshots taken entering each player's own Main 1 (see AnalyticsEventLogger.java)
             - older runs won't have this data. "Missed land drops" counts turns with a land sitting unplayed in
             hand. "Mana efficiency" is mana spent that turn / untapped lands available that turn, averaged - above
-            1 means rocks/dorks are pulling weight beyond lands alone, below 1 means mana's going unused.
+            1 means rocks/dorks are pulling weight beyond lands alone, below 1 means mana's going unused. "Curve
+            efficiency" is a spell's mana value / the round it was cast in, averaged across every spell cast -
+            above 1 means routinely landing above-curve spells (ramp paying off), below 1 means running behind
+            curve.
           </p>
           <table className="deck-stats-table">
             <thead>
@@ -261,6 +285,7 @@ function DeckStatsSection({
                 <th>Reaches 7 mana (turn)</th>
                 <th>Reaches 10 mana (turn)</th>
                 <th>Mana efficiency</th>
+                <th>Curve efficiency</th>
               </tr>
             </thead>
             <tbody>
@@ -273,6 +298,7 @@ function DeckStatsSection({
                   <td>{a.avgManaThresholdTurns.seven !== null ? a.avgManaThresholdTurns.seven.toFixed(1) : "—"}</td>
                   <td>{a.avgManaThresholdTurns.ten !== null ? a.avgManaThresholdTurns.ten.toFixed(1) : "—"}</td>
                   <td>{a.avgManaEfficiency !== null ? a.avgManaEfficiency.toFixed(2) : "—"}</td>
+                  <td>{a.avgCurveEfficiency !== null ? a.avgCurveEfficiency.toFixed(2) : "—"}</td>
                 </tr>
               ))}
             </tbody>

@@ -627,3 +627,53 @@ button.danger {
 button.danger:hover {
   background: #a5311f;
 }
+
+/* PDF report: window.print() on the run detail page (RunDetailView's
+   "Download PDF report" button) - forces light mode regardless of the
+   viewer's theme and hides everything that's only useful on-screen
+   (nav, buttons, the back link), so "Save as PDF" in the print dialog
+   produces a clean, shareable report with no app chrome. */
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --border: #ccc;
+    --text: #000000;
+    --muted: #444444;
+    --accent: #5433d6;
+    --turning-point: #fff3cd;
+    --turning-point-border: #f0c14b;
+    --row-hover: transparent;
+    --table-head-bg: #f0f0f0;
+    --chip-bg: #f0ecff;
+    --chip-border: #d9d0ff;
+    --log-bg: #f5f5f5;
+    --log-text: #111111;
+    --chart-grid: #cccccc;
+    --chart-axis-text: #444444;
+  }
+
+  .app-header,
+  .back-link,
+  .run-header-actions,
+  button {
+    display: none !important;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+
+  h3 {
+    break-after: avoid;
+  }
+
+  table,
+  .threat-matrix-wrap,
+  .cards-cast-details,
+  svg {
+    break-inside: avoid;
+  }
+}

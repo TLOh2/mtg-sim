@@ -77,6 +77,8 @@ export interface PlayerGameStats {
   manaThresholdTurns: ManaThresholdTurns;
   /** Average of (mana value of spells cast that turn / untapped lands available that turn) across turns with >0 available mana - >1 means spending more than lands alone provide (rocks/dorks helping), <1 means leaving mana up. */
   avgManaEfficiency: number | null;
+  /** Average of (a spell's mana value / the round it was cast in) across every spell cast - "curve efficiency" in the deckbuilding sense: >1 means routinely casting spells above what their round "should" support (ramp working), ~1 means playing roughly on-curve, <1 means running behind curve (screwed, or just holding up mana). Round 0 (pre-game/mulligan actions) is excluded to avoid a divide-by-zero. */
+  avgCurveEfficiency: number | null;
 }
 
 export interface EliminationEvent {
@@ -119,6 +121,7 @@ function emptyPlayerStats(player: string): PlayerGameStats {
     missedLandDropTurns: [],
     manaThresholdTurns: { five: null, seven: null, ten: null },
     avgManaEfficiency: null,
+    avgCurveEfficiency: null,
   };
 }
 
@@ -178,6 +181,10 @@ export function computeGameStats(
   const manaSpentByTurn = new Map<string, number>();
   const turnKey = (player: string, turn: number) => `${player}#${turn}`;
 
+  // Per-spell (manaValue / round cast) ratios, one list per player - the raw
+  // material for avgCurveEfficiency, averaged once every event's been seen.
+  const curveEfficiencySamples = new Map<string, number[]>();
+
   for (const event of events) {
     switch (event.type) {
       case "turn_began": {
@@ -231,6 +238,10 @@ export function computeGameStats(
           if (player && manaValue !== null) {
             const key = turnKey(player, currentTurn);
             manaSpentByTurn.set(key, (manaSpentByTurn.get(key) ?? 0) + manaValue);
+            if (currentTurn > 0) {
+              if (!curveEfficiencySamples.has(player)) curveEfficiencySamples.set(player, []);
+              curveEfficiencySamples.get(player)!.push(manaValue / currentTurn);
+            }
           }
         } else if (stats) {
           stats.actionsTotal += 1;
@@ -348,6 +359,7 @@ export function computeGameStats(
       }
     }
     stats.avgManaEfficiency = avg(efficiencies);
+    stats.avgCurveEfficiency = avg(curveEfficiencySamples.get(stats.player) ?? []);
   }
 
   return {
@@ -388,6 +400,8 @@ export interface DeckAggregateStats {
   avgManaThresholdTurns: { five: number | null; seven: number | null; ten: number | null };
   /** >1 = spending more mana than untapped lands alone provide (rocks/dorks pulling weight), <1 = leaving mana up, ~1 = using lands at face value. */
   avgManaEfficiency: number | null;
+  /** >1 = routinely casting above-curve spells for the round (ramp working), ~1 = on-curve, <1 = behind curve - see PlayerGameStats.avgCurveEfficiency. */
+  avgCurveEfficiency: number | null;
   /** Rough heuristic - see module doc comment. */
   manaIssueFlag: boolean;
   /** Rough 1-5 heuristic, community "power bracket" flavored - see module doc comment. */
@@ -514,6 +528,9 @@ export function computeRunAggregateStats(
     const manaEfficiencies = perGame
       .map(({ stats }) => stats?.avgManaEfficiency)
       .filter((n): n is number => n !== null && n !== undefined);
+    const curveEfficiencies = perGame
+      .map(({ stats }) => stats?.avgCurveEfficiency)
+      .filter((n): n is number => n !== null && n !== undefined);
     const fiveTurns = perGame
       .map(({ stats }) => stats?.manaThresholdTurns.five)
       .filter((n): n is number => n !== null && n !== undefined);
@@ -579,6 +596,7 @@ export function computeRunAggregateStats(
         ten: avg(tenTurns),
       },
       avgManaEfficiency: avg(manaEfficiencies),
+      avgCurveEfficiency: avg(curveEfficiencies),
       manaIssueFlag,
       powerBracketEstimate: bracket,
     });

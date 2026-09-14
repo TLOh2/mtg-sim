@@ -26,6 +26,15 @@ export interface DeckLeaderboardEntry {
   overallWinRate: number;
   /** Average of each run's own rough bracket estimate - see gameStats.ts's powerBracketEstimate caveats, which all apply here too. */
   avgBracketEstimate: number;
+  /**
+   * Spread of this deck's per-run win rate (population standard deviation,
+   * in the same 0-1 units as winRate) - a "swinginess" signal distinct from
+   * overallWinRate itself: two decks can share the same overall win rate
+   * while one hovers near it every run and the other swings between
+   * dominating and whiffing. Null with fewer than 2 runs (spread is
+   * undefined for a single data point).
+   */
+  winRateStdDev: number | null;
   /** Chronological, oldest first - the raw material for a "dominance over time" chart. */
   history: DeckRunHistoryPoint[];
 }
@@ -33,6 +42,13 @@ export interface DeckLeaderboardEntry {
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+/** Population standard deviation - describing the spread of the runs actually observed, not estimating a wider population from a sample. */
+function stdDev(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  const mean = avg(nums);
+  return Math.sqrt(avg(nums.map((n) => (n - mean) ** 2)));
 }
 
 /**
@@ -97,6 +113,7 @@ export function computeDeckLeaderboard(runs: RunSummary[]): DeckLeaderboardEntry
       totalWins,
       overallWinRate: totalGamesPlayed > 0 ? totalWins / totalGamesPlayed : 0,
       avgBracketEstimate: avg(history.map((h) => h.bracketEstimate)),
+      winRateStdDev: history.length >= 2 ? stdDev(history.map((h) => h.winRate)) : null,
       history,
     });
   }

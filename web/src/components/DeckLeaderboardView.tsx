@@ -29,7 +29,10 @@ export function DeckLeaderboardView({ onBack }: { onBack: () => void }) {
         Every deck's record across all completed runs, not just one - the running tally of who's actually
         dominant. Sorted by overall win rate. A deck that's only ever appeared in one run doesn't yet have
         enough data to say much - keep an eye on runsPlayed. Bracket estimate is the same rough, directional
-        heuristic as on a single run's page, averaged across its runs here.
+        heuristic as on a single run's page, averaged across its runs here. "Swing" is how much this deck's
+        win rate varies run to run (±, in percentage points) - two decks can share the same overall win rate
+        while one hovers near it every time and the other alternates between dominating and whiffing; needs
+        2+ runs to mean anything.
       </p>
 
       {entries.length === 0 && (
@@ -45,6 +48,7 @@ export function DeckLeaderboardView({ onBack }: { onBack: () => void }) {
               <th>Games</th>
               <th>Wins</th>
               <th>Win rate</th>
+              <th title="How much this deck's win rate varies run to run - see the note above.">Swing</th>
               <th>Avg. bracket</th>
             </tr>
           </thead>
@@ -60,13 +64,14 @@ export function DeckLeaderboardView({ onBack }: { onBack: () => void }) {
                   <td>{e.totalGamesPlayed}</td>
                   <td>{e.totalWins}</td>
                   <td>{Math.round(e.overallWinRate * 100)}%</td>
+                  <td>{e.winRateStdDev !== null ? `±${Math.round(e.winRateStdDev * 100)}pp` : "—"}</td>
                   <td>
                     <span className="bracket-pill">{e.avgBracketEstimate.toFixed(1)}</span>
                   </td>
                 </tr>
                 {expanded === e.deckKey && (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <DominanceOverTime entry={e} />
                     </td>
                   </tr>
