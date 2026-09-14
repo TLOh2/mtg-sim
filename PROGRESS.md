@@ -470,6 +470,35 @@ test, same as every other change in this saga: reasoned and validated as
 far as this session can, but the actual "you paste your real deck and it
 runs" moment is still ahead.
 
+### Update: paste-decklist worked - then Forge itself ran out of memory
+
+You redeployed and tried it for real. Good news buried in the failure: no
+CORS error, no 403, no parsing error - the run reached `"running"`, staged
+the decks, and launched Forge. It failed *inside Forge itself*:
+`OutOfMemoryError: Java heap space` while `CardDb.initialize` was loading
+Forge's card database (~34,000 cards - confirmed against this session's own
+local logs: "Read cards: 33798 files"). This is a resource limit on the
+Render instance, unrelated to anything about the decklist-text work.
+
+`engine/run-sim.sh` had never set any JVM heap flags at all - it was relying
+on the JVM's own default (roughly 25% of whatever memory it detects), which
+is conservative and, on a small container, apparently not enough to load
+Forge's full card catalog. Added `-XX:MaxRAMPercentage=75.0` to the `java`
+invocation - this tells the (cgroup-aware, since OpenJDK 10+) JVM to use up
+to 75% of the container's *actual* memory rather than its own more
+conservative default, which should help without needing to guess an
+absolute number that might not fit a given Render plan's real ceiling.
+Re-ran `scripts/phase0-smoke-test.sh` locally to confirm this flag change
+doesn't break anything here (still loads all 33798+851 cards, plays a real
+game to completion).
+
+**Honest limit of this fix:** if Render's instance genuinely doesn't have
+enough total RAM for Forge even at 75% utilization, this won't be enough -
+that's not something any JVM flag can solve, and would mean the instance
+needs to be sized up (a real cost decision, your call). Next step is the
+same as always: you retry on the redeployed instance and tell me what
+happens.
+
 ## Phase 5 — deprioritized by you; dropped from active scope
 
 Was going to be blocked anyway (`archidekt.com` is blocked by this session's

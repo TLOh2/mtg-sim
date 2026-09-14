@@ -51,4 +51,11 @@ CLASSES_CP="$ENGINE_DIR/forge/forge-gui-desktop/target/classes:$ENGINE_DIR/forge
 FULL_CP="$CLASSES_CP:$BUILD_CP"
 
 cd "$ENGINE_DIR/forge/forge-gui-desktop"
-exec java -Djava.awt.headless=true -cp "$FULL_CP" forge.view.Main sim -d "${RELATIVE_DECKS[@]}" "${EXTRA_ARGS[@]}"
+# -XX:MaxRAMPercentage lets the JVM claim a real share of whatever memory the
+# host/container actually has (modern OpenJDK is cgroup-aware by default),
+# rather than its own conservative ~25%-of-detected-memory default - needed
+# after a real deploy hit OutOfMemoryError loading Forge's ~34k-card database
+# on a small container. If this alone isn't enough, the container genuinely
+# doesn't have enough RAM for Forge and needs a bigger instance size - no
+# flag fixes that. See PROGRESS.md.
+exec java -Djava.awt.headless=true -XX:MaxRAMPercentage=75.0 -cp "$FULL_CP" forge.view.Main sim -d "${RELATIVE_DECKS[@]}" "${EXTRA_ARGS[@]}"

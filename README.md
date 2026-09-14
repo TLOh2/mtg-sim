@@ -116,6 +116,13 @@ What to know before relying on it:
   an in-progress batch. Your dashboard tab polling every 4s while a run is
   "running" should count as activity and prevent that, but a plan that
   doesn't auto-sleep is the safer bet if you plan to close the tab mid-run.
+- **Forge needs real memory.** Loading its ~34,000-card database on startup
+  hit `OutOfMemoryError` on a real deploy - `engine/run-sim.sh` now tells the
+  JVM to use up to 75% of whatever RAM the container actually has (rather
+  than its own more conservative default), which may be enough on its own.
+  If it still runs out, that's a real sign the instance is too small for
+  Forge, not something a JVM flag can fix - the next step would be a bigger
+  (more expensive) Render instance type.
 
 ## Self-checks
 
