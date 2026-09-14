@@ -6,7 +6,8 @@
 # substantially slow the build (see spec.json engine.modules_intentionally_skipped).
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/forge"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/forge"
 
 MODULES="forge-core,forge-game,forge-ai,forge-gui,forge-gui-desktop"
 
@@ -25,7 +26,7 @@ mvn -q -pl "$MODULES" -am install -DskipTests -Dcheckstyle.skip=true -Dmaven.jav
 
 # Emit a runtime classpath file other scripts (run-sim.sh) can source.
 mvn -q -pl forge-gui-desktop -am dependency:build-classpath \
-    -Dmdep.outputFile="$(dirname "${BASH_SOURCE[0]}")/.runtime-classpath.txt" \
+    -Dmdep.outputFile="$SCRIPT_DIR/.runtime-classpath.txt" \
     -DincludeScope=runtime -Dcheckstyle.skip=true
 
 echo "Forge build complete. Runtime classpath written to engine/.runtime-classpath.txt"

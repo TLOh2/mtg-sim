@@ -68,7 +68,7 @@ WEB_PID=$!
 
 WEB_URL=""
 for _ in $(seq 1 60); do
-    WEB_URL="$(grep -oE 'http://localhost:[0-9]+/?' "$WEB_LOG" 2>/dev/null | head -1 || true)"
+    WEB_URL="$(sed -E 's/\x1b\[[0-9;]*[a-zA-Z]//g' "$WEB_LOG" 2>/dev/null | grep -oE 'http://localhost:[0-9]+/?' | head -1 || true)"
     [ -n "$WEB_URL" ] && break
     sleep 0.5
 done

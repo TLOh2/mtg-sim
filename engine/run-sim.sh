@@ -36,7 +36,20 @@ done
 if [ "${1:-}" = "--" ]; then shift; fi
 EXTRA_ARGS=("$@")
 
-FORGE_DECK_DIR="${HOME}/.forge/decks/commander/${RUN_ID}"
+# Forge resolves its own user-data dir per-OS (see
+# forge.localinstance.properties.ForgeProfileProperties#getDefaultDirs) -
+# %APPDATA%/Forge on Windows (falling back to ~/.forge only when APPDATA
+# isn't set), ~/Library/Application Support/Forge on macOS, ~/.forge on
+# Linux. Deck staging below has to land wherever Forge will actually look,
+# or `sim` reports "No deck found" and exits 0 with nothing simulated.
+if [ -n "${APPDATA:-}" ]; then
+    FORGE_USER_DIR="${APPDATA}/Forge"
+elif [ "$(uname -s)" = "Darwin" ]; then
+    FORGE_USER_DIR="${HOME}/Library/Application Support/Forge"
+else
+    FORGE_USER_DIR="${HOME}/.forge"
+fi
+FORGE_DECK_DIR="${FORGE_USER_DIR}/decks/commander/${RUN_ID}"
 mkdir -p "$FORGE_DECK_DIR"
 
 RELATIVE_DECKS=()
