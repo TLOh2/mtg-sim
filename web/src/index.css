@@ -506,6 +506,30 @@ button.secondary {
   margin-top: -4px;
 }
 
+.threat-matrix-wrap {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.threat-matrix-table {
+  margin: 0;
+}
+
+.threat-matrix-table th[scope="row"] {
+  background: var(--table-head-bg);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.threat-matrix-table td {
+  text-align: center;
+}
+
+.threat-matrix-diagonal {
+  background: var(--table-head-bg);
+  color: var(--muted);
+}
+
 .cards-cast-details {
   background: var(--panel);
   border: 1px solid var(--border);

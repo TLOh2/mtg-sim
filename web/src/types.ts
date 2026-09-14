@@ -81,6 +81,20 @@ export interface LifePoint {
   life: number;
 }
 
+export interface TurnSnapshot {
+  turn: number;
+  handSize: number;
+  landsInHand: number;
+  landsInPlay: number;
+  untappedLands: number;
+}
+
+export interface ManaThresholdTurns {
+  five: number | null;
+  seven: number | null;
+  ten: number | null;
+}
+
 export interface PlayerGameStats {
   player: string;
   mulligans: number;
@@ -91,15 +105,31 @@ export interface PlayerGameStats {
   commanderCastTurns: number[];
   combatDamageTaken: number;
   nonCombatDamageTaken: number;
+  combatDamageDealt: number;
+  nonCombatDamageDealt: number;
+  commanderDamageDealt: number;
+  nonDamageLifeLossDealt: number;
+  firstCombatDamageDealtTurn: number | null;
   lifeCurve: LifePoint[];
   eliminatedTurn: number | null;
   finalLife: number | null;
+  turnSnapshots: TurnSnapshot[];
+  missedLandDropTurns: number[];
+  manaThresholdTurns: ManaThresholdTurns;
+  avgManaEfficiency: number | null;
+}
+
+export interface EliminationEvent {
+  player: string;
+  turn: number;
 }
 
 export interface GameStats {
   gameIndex: number;
   turnsPlayed: number;
   firstCombatDamageTurn: number | null;
+  eliminationOrder: EliminationEvent[];
+  threatMatrix: Record<string, Record<string, number>>;
   players: PlayerGameStats[];
 }
 
@@ -114,6 +144,16 @@ export interface DeckAggregateStats {
   avgFirstSpellCastTurn: number | null;
   avgCommanderCastTurn: number | null;
   avgEliminatedTurnWhenLost: number | null;
+  avgCombatDamageDealt: number;
+  avgNonCombatDamageDealt: number;
+  avgCommanderDamageDealt: number;
+  avgNonDamageLifeLossDealt: number;
+  avgFirstCombatDamageDealtTurn: number | null;
+  avgFinishPosition: number | null;
+  avgMissedLandDrops: number;
+  avgLandsInHandAtEnd: number;
+  avgManaThresholdTurns: ManaThresholdTurns;
+  avgManaEfficiency: number | null;
   manaIssueFlag: boolean;
   powerBracketEstimate: number;
 }
@@ -123,8 +163,35 @@ export interface CardCastCount {
   count: number;
 }
 
+export interface SpellsByRoundPoint {
+  round: number;
+  count: number;
+}
+
+export interface DeckRunHistoryPoint {
+  runId: string;
+  createdAt: string;
+  gamesPlayed: number;
+  wins: number;
+  winRate: number;
+  bracketEstimate: number;
+}
+
+export interface DeckLeaderboardEntry {
+  deckKey: string;
+  label: string;
+  runsPlayed: number;
+  totalGamesPlayed: number;
+  totalWins: number;
+  overallWinRate: number;
+  avgBracketEstimate: number;
+  history: DeckRunHistoryPoint[];
+}
+
 export interface RunStats {
   games: GameStats[];
   aggregate: DeckAggregateStats[];
   cardCastCounts: Record<string, CardCastCount[]>;
+  threatMatrix: Record<string, Record<string, number>>;
+  spellsByRound: SpellsByRoundPoint[];
 }

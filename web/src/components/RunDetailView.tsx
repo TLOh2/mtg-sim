@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { CardCastCount, DeckAggregateStats, RunDetail, RunStats } from "../types";
+import type { CardCastCount, DeckAggregateStats, RunDetail, RunStats, SpellsByRoundPoint } from "../types";
+import { ThreatMatrixTable } from "./ThreatMatrix";
 import { StatusBadge, WinRateBar, shortName } from "./RunList";
-import { HorizontalBarChart } from "./Charts";
+import { HorizontalBarChart, LineChart } from "./Charts";
 
 const POLL_MS = 4000;
 
@@ -137,6 +138,8 @@ export function RunDetailView({
             <DeckStatsSection
               aggregate={stats.aggregate}
               cardCastCounts={stats.cardCastCounts}
+              threatMatrix={stats.threatMatrix}
+              spellsByRound={stats.spellsByRound}
               totalGames={run.completedGames}
             />
           )}
@@ -171,15 +174,23 @@ export function RunDetailView({
 function DeckStatsSection({
   aggregate,
   cardCastCounts,
+  threatMatrix,
+  spellsByRound,
   totalGames,
 }: {
   aggregate: DeckAggregateStats[];
   cardCastCounts: Record<string, CardCastCount[]>;
+  threatMatrix: Record<string, Record<string, number>>;
+  spellsByRound: SpellsByRoundPoint[];
   totalGames: number;
 }) {
   const winRateData = aggregate.map((a) => ({
     label: shortName(a.player),
     value: Math.round(a.winRate * 100),
+  }));
+  const totalDamageDealtData = aggregate.map((a) => ({
+    label: shortName(a.player),
+    value: Math.round((a.avgCombatDamageDealt + a.avgNonCombatDamageDealt) * 10) / 10,
   }));
 
   return (
@@ -203,6 +214,7 @@ function DeckStatsSection({
             <th>Avg. lands played</th>
             <th>Avg. first spell (turn)</th>
             <th>Avg. commander cast (turn)</th>
+            <th title="1 = won or last one standing, on average across this run's games">Avg. finish pos.</th>
             <th>Bracket est.</th>
           </tr>
         </thead>
@@ -212,7 +224,7 @@ function DeckStatsSection({
               <td>
                 {shortName(a.player)}
                 {a.manaIssueFlag && (
-                  <div className="mana-issue-flag" title="Fewer lands played per game than the pod average, with a meaningful mulligan rate - may be running short on mana consistency.">
+                  <div className="mana-issue-flag" title="Averaging at least 1 missed land drop per game (a land sat in hand, unplayed) - see the Mana & Consistency section below for the detail.">
                     ⚠ possible mana issues
                   </div>
                 )}
@@ -221,6 +233,7 @@ function DeckStatsSection({
               <td>{a.avgLandsPlayed.toFixed(1)}</td>
               <td>{a.avgFirstSpellCastTurn !== null ? a.avgFirstSpellCastTurn.toFixed(1) : "—"}</td>
               <td>{a.avgCommanderCastTurn !== null ? a.avgCommanderCastTurn.toFixed(1) : "—"}</td>
+              <td>{a.avgFinishPosition !== null ? a.avgFinishPosition.toFixed(1) : "—"}</td>
               <td>
                 <span className="bracket-pill">{a.powerBracketEstimate.toFixed(1)}</span>
               </td>
@@ -228,6 +241,110 @@ function DeckStatsSection({
           ))}
         </tbody>
       </table>
+
+      {aggregate.some((a) => a.avgManaEfficiency !== null) && (
+        <>
+          <h3>Mana &amp; consistency</h3>
+          <p className="stats-caveat">
+            From per-turn hand/mana snapshots taken entering each player's own Main 1 (see AnalyticsEventLogger.java)
+            - older runs won't have this data. "Missed land drops" counts turns with a land sitting unplayed in
+            hand. "Mana efficiency" is mana spent that turn / untapped lands available that turn, averaged - above
+            1 means rocks/dorks are pulling weight beyond lands alone, below 1 means mana's going unused.
+          </p>
+          <table className="deck-stats-table">
+            <thead>
+              <tr>
+                <th>Deck</th>
+                <th>Avg. missed land drops</th>
+                <th>Avg. lands in hand (late game)</th>
+                <th>Reaches 5 mana (turn)</th>
+                <th>Reaches 7 mana (turn)</th>
+                <th>Reaches 10 mana (turn)</th>
+                <th>Mana efficiency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {aggregate.map((a) => (
+                <tr key={a.player}>
+                  <td>{shortName(a.player)}</td>
+                  <td>{a.avgMissedLandDrops.toFixed(1)}</td>
+                  <td>{a.avgLandsInHandAtEnd.toFixed(1)}</td>
+                  <td>{a.avgManaThresholdTurns.five !== null ? a.avgManaThresholdTurns.five.toFixed(1) : "—"}</td>
+                  <td>{a.avgManaThresholdTurns.seven !== null ? a.avgManaThresholdTurns.seven.toFixed(1) : "—"}</td>
+                  <td>{a.avgManaThresholdTurns.ten !== null ? a.avgManaThresholdTurns.ten.toFixed(1) : "—"}</td>
+                  <td>{a.avgManaEfficiency !== null ? a.avgManaEfficiency.toFixed(2) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      <h3>Damage dealt</h3>
+      <p className="stats-caveat">
+        Average total damage each deck dealt per game (combat + non-combat, e.g. burn spells like Chandra's
+        Ignition), attributed by tracing each damage source card back to its owner (owners don't change hands in
+        Magic, only control does) - so this is "who's actually doing the beating," not just who's taking it.
+      </p>
+      <HorizontalBarChart data={totalDamageDealtData} valueFormatter={(v) => v.toFixed(1)} />
+      <table className="deck-stats-table">
+        <thead>
+          <tr>
+            <th>Deck</th>
+            <th>Combat</th>
+            <th>Non-combat</th>
+            <th>Commander (of combat)</th>
+            <th title="Not damage - a straight 'lose N life' effect or a cost like a fetch/pain land opponents pay. Never overlaps with the damage columns.">
+              Non-damage life loss dealt
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {aggregate.map((a) => {
+            const total = a.avgCombatDamageDealt + a.avgNonCombatDamageDealt;
+            const combatPct = total > 0 ? Math.round((a.avgCombatDamageDealt / total) * 100) : null;
+            const nonCombatPct = total > 0 ? Math.round((a.avgNonCombatDamageDealt / total) * 100) : null;
+            return (
+              <tr key={a.player}>
+                <td>{shortName(a.player)}</td>
+                <td>
+                  {a.avgCombatDamageDealt.toFixed(1)}
+                  {combatPct !== null && <span className="muted"> ({combatPct}%)</span>}
+                </td>
+                <td>
+                  {a.avgNonCombatDamageDealt.toFixed(1)}
+                  {nonCombatPct !== null && <span className="muted"> ({nonCombatPct}%)</span>}
+                </td>
+                <td>{a.avgCommanderDamageDealt > 0 ? a.avgCommanderDamageDealt.toFixed(1) : "—"}</td>
+                <td>{a.avgNonDamageLifeLossDealt > 0 ? a.avgNonDamageLifeLossDealt.toFixed(1) : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <h3>Threat assessment</h3>
+      <p className="stats-caveat">
+        Total combat damage dealt from row to column, summed across {totalGames} game{totalGames === 1 ? "" : "s"} -
+        who's actually attacking whom, not just who wins.
+      </p>
+      <ThreatMatrixTable matrix={threatMatrix} players={aggregate.map((a) => a.player)} />
+
+      {spellsByRound.length > 0 && (
+        <>
+          <h3>Tempo: spells cast per round</h3>
+          <p className="stats-caveat">
+            Total spells cast by anyone, pod-wide, summed across {totalGames} game{totalGames === 1 ? "" : "s"} -
+            when does the table actually start doing things.
+          </p>
+          <LineChart
+            series={[{ label: "Spells cast", points: spellsByRound.map((p) => ({ x: p.round, y: p.count })) }]}
+            yMin={0}
+            xLabel="Round"
+            yLabel="Spells cast"
+          />
+        </>
+      )}
 
       <h3>Cards cast</h3>
       <p className="stats-caveat">

@@ -1,4 +1,5 @@
 import type {
+  DeckLeaderboardEntry,
   DeckLibraryEntry,
   DeckSelection,
   GameDetail,
@@ -37,4 +38,5 @@ export const api = {
     postJson<StartRunResponse>("/api/runs", { decks, games, clockSeconds }),
   cancelRun: (runId: string) => postJson<{ cancelled: boolean }>(`/api/runs/${encodeURIComponent(runId)}/cancel`, {}),
   listDecks: () => getJson<DeckLibraryEntry[]>("/api/decks"),
+  getDeckLeaderboard: () => getJson<DeckLeaderboardEntry[]>("/api/decks/leaderboard"),
 };

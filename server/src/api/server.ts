@@ -17,7 +17,14 @@ import path from "node:path";
 import { RUNS_DIR, writeRunSummary } from "../analyze/runAndAnalyzePod.js";
 import { startPodFromDecklistText } from "../analyze/startPodFromDecklistText.js";
 import { cancelRun } from "../simulate/activeRuns.js";
-import { computeCardCastCounts, computeGameStats, computeRunAggregateStats } from "../analyze/gameStats.js";
+import {
+  computeCardCastCounts,
+  computeGameStats,
+  computeRunAggregateStats,
+  computeRunSpellsByRound,
+  computeRunThreatMatrix,
+} from "../analyze/gameStats.js";
+import { computeDeckLeaderboard } from "../analyze/deckLeaderboard.js";
 import { listDecks } from "../decks/deckLibrary.js";
 import type { DeckSelection } from "../decks/types.js";
 import type { RunSummary } from "../analyze/types.js";
@@ -127,6 +134,18 @@ const server = createServer(async (req, res) => {
 
   if (parts[1] === "decks" && parts.length === 2) {
     sendJson(res, 200, listDecks());
+    return;
+  }
+
+  if (parts[1] === "decks" && parts[2] === "leaderboard" && parts.length === 3) {
+    // Cross-run standings (see deckLeaderboard.ts) - every "complete" run on
+    // disk, not just the one currently open, so this deliberately reads
+    // everything each request rather than reusing the single-run summaries
+    // above. Fine at this scale (a personal, single-user dataset).
+    const runs = listRunIds()
+      .map(loadRun)
+      .filter((r): r is RunSummary => r !== null);
+    sendJson(res, 200, computeDeckLeaderboard(runs));
     return;
   }
 
@@ -266,7 +285,9 @@ const server = createServer(async (req, res) => {
     const gameStatsByIndex = new Map(games.map((g) => [g.gameIndex, g]));
     const aggregate = computeRunAggregateStats(run.games, gameStatsByIndex, run.playerNames);
     const cardCastCounts = computeCardCastCounts(run.games, run.playerNames);
-    sendJson(res, 200, { games, aggregate, cardCastCounts });
+    const threatMatrix = computeRunThreatMatrix(games);
+    const spellsByRound = computeRunSpellsByRound(games);
+    sendJson(res, 200, { games, aggregate, cardCastCounts, threatMatrix, spellsByRound });
     return;
   }
 
