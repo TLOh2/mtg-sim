@@ -15,7 +15,9 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { RUNS_DIR } from "../analyze/runAndAnalyzePod.js";
-import { startPodFromDecklistText, type DeckInput } from "../analyze/startPodFromDecklistText.js";
+import { startPodFromDecklistText } from "../analyze/startPodFromDecklistText.js";
+import { listDecks } from "../decks/deckLibrary.js";
+import type { DeckSelection } from "../decks/types.js";
 import type { RunSummary } from "../analyze/types.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
@@ -121,6 +123,11 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (parts[1] === "decks" && parts.length === 2) {
+    sendJson(res, 200, listDecks());
+    return;
+  }
+
   if (parts[1] !== "runs") {
     sendJson(res, 404, { error: "not found" });
     return;
@@ -135,30 +142,30 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // decks are pasted decklist text (Moxfield's own "Copy for Moxfield"
-    // export - see importers/moxfieldText.ts), not fetched by anyone here.
-    // Both a server-side fetch (bot detection, confirmed 403 on a real
-    // deploy) and a browser-side fetch (CORS, confirmed blocked in a real
-    // browser) turned out to be dead ends - see PROGRESS.md.
+    // Each entry is either { deckId } (pick from the saved library) or
+    // { label, decklistText } (paste fresh - auto-saved to the library by
+    // startPodFromDecklistText). Nothing here fetches Moxfield itself: both
+    // a server-side fetch (bot detection, confirmed 403 on a real deploy)
+    // and a browser-side fetch (CORS, confirmed blocked in a real browser)
+    // turned out to be dead ends - see PROGRESS.md.
     const decks = payload.decks;
-    if (
-      !Array.isArray(decks) ||
-      decks.length !== 4 ||
-      decks.some(
-        (d) =>
-          typeof d !== "object" ||
-          d === null ||
-          typeof (d as { label?: unknown }).label !== "string" ||
-          typeof (d as { decklistText?: unknown }).decklistText !== "string" ||
-          !(d as { decklistText: string }).decklistText.trim(),
-      )
-    ) {
+    const isValidSelection = (d: unknown): d is DeckSelection => {
+      if (typeof d !== "object" || d === null) return false;
+      if ("deckId" in d) return typeof (d as { deckId: unknown }).deckId === "string";
+      return (
+        typeof (d as { label?: unknown }).label === "string" &&
+        typeof (d as { decklistText?: unknown }).decklistText === "string" &&
+        !!(d as { decklistText: string }).decklistText.trim()
+      );
+    };
+    if (!Array.isArray(decks) || decks.length !== 4 || !decks.every(isValidSelection)) {
       sendJson(res, 400, {
-        error: "decks must be an array of exactly 4 { label, decklistText } entries",
+        error:
+          "decks must be an array of exactly 4 entries, each either { deckId } or { label, decklistText }",
       });
       return;
     }
-    const deckInputs = decks as DeckInput[];
+    const deckSelections = decks as DeckSelection[];
 
     const games =
       typeof payload.games === "number" && Number.isFinite(payload.games)
@@ -173,7 +180,7 @@ const server = createServer(async (req, res) => {
     // Fire-and-forget: startPodFromDecklistText persists all progress/errors
     // to data/runs/<runId>.json itself (see its own try/catch), so there's
     // nothing more to do with this promise here.
-    void startPodFromDecklistText({ runId, decks: deckInputs, games, clockSeconds });
+    void startPodFromDecklistText({ runId, decks: deckSelections, games, clockSeconds });
 
     sendJson(res, 202, { runId, status: "running" });
     return;

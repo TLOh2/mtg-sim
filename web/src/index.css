@@ -235,10 +235,20 @@ button.secondary {
   color: var(--muted);
 }
 
-.deck-label-row input {
+.deck-label-row input,
+.deck-label-row select {
   flex: 1;
   font-size: 0.85rem;
   padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.deck-input-field input[type="text"] {
+  font-size: 0.85rem;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);

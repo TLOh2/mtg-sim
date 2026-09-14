@@ -536,6 +536,62 @@ free tier) - `Dockerfile` as it stands should port to any of them with
 little to no change. Your call on whether to size up the current instance
 or move.
 
+### Update: a saved deck library, so pasting isn't a per-run tax
+
+It's running on Render again (deploy succeeded, the memory fix held). Next
+friction point you raised: you have more than 4 decks and are tired of
+re-pasting the same ones every time. You also raised the friends angle
+again - if someone else pastes a deck, could the site remember it for them
+too? Both are the same feature: a shared deck library, not just a fixed
+4-deck preset.
+
+First asked whether saved decks should actually survive redeploys (needs
+Render's paid persistent-disk add-on) or be best-effort (free, but wiped
+next time I push a change) - you chose best-effort for now. That shaped the
+design: two separate storage locations merged into one library at read time -
+
+- `server/presets/decks/*.json` - baked into the repo, committed, survives
+  every redeploy for free. This is where decks *you* explicitly hand me go
+  (README documents the exact file shape for adding more by hand).
+- `data/decks/*.json` - written at runtime when anyone pastes a fresh
+  decklist through the dashboard. Same ephemeral-storage tradeoff as
+  `data/runs/` (ephemeral, gitignored) - ephemeral, matches what you chose.
+
+Baked in your real Éowyn/"Ayo, Win" deck as the first preset
+(`server/presets/decks/eowyn-ayo-win.json`, generated from the same fixture
+used for Phase 1's real-data validation). `NewRunForm.tsx` now gives each of
+the 4 players a dropdown: pick a saved deck, or "Paste new..." to paste
+fresh text (which then gets auto-saved). `POST /api/runs` accepts either
+`{ deckId }` or `{ label, decklistText }` per player; a new `GET /api/decks`
+lists the library (with a precomputed commander-name preview, e.g. "Éowyn,
+Shieldmaiden", shown next to each deck's name in the dropdown).
+
+**A real bug the smoke test caught before you ever would have hit it:** the
+first version auto-saved a fresh paste *before* checking whether it actually
+parsed as a valid decklist - meaning a typo'd or garbage paste would still
+get written into the shared library, permanently cluttering the dropdown for
+everyone. Fixed: a fresh paste is only saved *after* it parses successfully.
+Verified by extending `dashboard-start-run-smoke-test.sh` to POST 4 garbage
+decklists and then check `/api/decks` doesn't contain them - it does now
+correctly not save them (it did, incorrectly, before the fix).
+
+Also made hand-written preset files more forgiving: `listDecks()`/`getDeck()`
+now compute the commander-preview themselves for any preset missing one, so
+adding a deck to `server/presets/decks/` by hand only requires
+`{id, label, decklistText, savedAt}` - no need to run the parser yourself
+first to fill in `commanderPreview`.
+
+Validated the whole thing for real (not just unit tests): the smoke test now
+runs an actual 1-game Forge batch picking the baked-in preset deck by id for
+all 4 players (`{"deckId": "eowyn-ayo-win"}` x4) through the real
+POST /api/runs → complete pipeline, plus covers pasting a fresh deck and
+confirming it appears in `/api/decks` afterward, an unknown `deckId` failing
+clearly, and garbage decklists neither succeeding nor polluting the library.
+
+**Still ahead:** you're going to send me the rest of your decks to bake in
+as more presets - once I have them, I'll add them to
+`server/presets/decks/` the same way and push.
+
 ## Phase 5 — deprioritized by you; dropped from active scope
 
 Was going to be blocked anyway (`archidekt.com` is blocked by this session's

@@ -34,6 +34,16 @@ export interface StartRunResponse {
   status: RunStatus;
 }
 
+export interface DeckLibraryEntry {
+  id: string;
+  label: string;
+  decklistText: string;
+  commanderPreview?: string;
+  savedAt: string;
+}
+
+export type DeckSelection = { deckId: string } | { label: string; decklistText: string };
+
 export interface GameEvent {
   turn: number;
   index: number;

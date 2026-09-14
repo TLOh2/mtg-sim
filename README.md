@@ -19,14 +19,39 @@ dependencies (takes a few minutes; every run after that is fast), then starts
 both servers and opens the dashboard in your browser. Press Ctrl+C in that
 terminal to stop everything cleanly.
 
-Click **+ New run**. For each player, open their deck on Moxfield, click
-**Export** → **Copy for Moxfield** (not "Copy for Arena"/"Copy for MTGO" -
-those drop cards those formats can't represent), and paste the result into
-that player's box. Submit. See "A note on how deck import works" below for
-why it's a pasted decklist rather than just a URL. A full batch (20 games by
-default) can take a while; the run appears immediately with a "running"
-status and the page polls until it's done, so it's safe to navigate away and
-come back later.
+Click **+ New run**. For each of the 4 players, either pick an already-saved
+deck from the dropdown, or choose **Paste new...** and paste that player's
+Moxfield export: open their deck on Moxfield, click **Export** → **Copy for
+Moxfield** (not "Copy for Arena"/"Copy for MTGO" - those drop cards those
+formats can't represent), and paste the result in. A deck you paste is saved
+automatically - next time it's just sitting in the dropdown, no re-pasting.
+See "A note on how deck import works" below for why it's a pasted decklist
+rather than just a URL. Submit; a full batch (20 games by default) can take
+a while, but the run appears immediately with a "running" status and the
+page polls until it's done, so it's safe to navigate away and come back
+later.
+
+### Baking in decks you always want available
+
+Decks pasted through the dashboard are only saved for as long as the
+current deploy lives (see the storage caveat below) - fine for casual use,
+but if there are specific decks you want available *every* time, permanently,
+add them to the repo instead: drop a file in `server/presets/decks/`
+shaped like:
+
+```json
+{
+  "id": "some-unique-id",
+  "label": "Deck name shown in the dropdown",
+  "decklistText": "1 Sol Ring (CMM) 382\n1 Command Tower (LTC) 301\n...",
+  "savedAt": "2025-01-01T00:00:00.000Z"
+}
+```
+
+(`commanderPreview` is optional - computed automatically if omitted.) These
+are committed to the repo, so they survive every redeploy for free, unlike
+anything pasted through the site itself. `server/presets/decks/eowyn-ayo-win.json`
+is a real example to copy the shape from.
 
 ### Running the two servers by hand
 

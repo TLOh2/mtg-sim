@@ -14,6 +14,14 @@ dist/
 data/runs/*
 !data/runs/.gitkeep
 
+# Decks pasted through the dashboard get auto-saved here for reuse - NOT
+# committed (this is user-generated data, not source, and lives only as
+# long as the current deploy does - see server/src/decks/deckLibrary.ts).
+# Deliberately baked-in decks live in server/presets/decks/ instead, which
+# IS committed.
+data/decks/*
+!data/decks/.gitkeep
+
 # OS/editor cruft
 .DS_Store
 *.log

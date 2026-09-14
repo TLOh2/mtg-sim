@@ -1,4 +1,4 @@
-import type { GameDetail, RunDetail, RunListEntry, StartRunResponse } from "./types";
+import type { DeckLibraryEntry, DeckSelection, GameDetail, RunDetail, RunListEntry, StartRunResponse } from "./types";
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path);
@@ -24,6 +24,7 @@ export const api = {
   getRun: (runId: string) => getJson<RunDetail>(`/api/runs/${encodeURIComponent(runId)}`),
   getGame: (runId: string, gameIndex: number) =>
     getJson<GameDetail>(`/api/runs/${encodeURIComponent(runId)}/games/${gameIndex}`),
-  startRun: (decks: { label: string; decklistText: string }[], games?: number, clockSeconds?: number) =>
+  startRun: (decks: DeckSelection[], games?: number, clockSeconds?: number) =>
     postJson<StartRunResponse>("/api/runs", { decks, games, clockSeconds }),
+  listDecks: () => getJson<DeckLibraryEntry[]>("/api/decks"),
 };
