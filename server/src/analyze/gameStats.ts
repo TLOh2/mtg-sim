@@ -69,9 +69,9 @@ export interface PlayerGameStats {
   lifeCurve: LifePoint[];
   eliminatedTurn: number | null;
   finalLife: number | null;
-  /** One per turn_snapshot event (entering this player's own Main 1) - see AnalyticsEventLogger.java. */
+  /** One per turn_snapshot event (entering this player's own Main 2, after that turn's own land drop) - see AnalyticsEventLogger.java. */
   turnSnapshots: TurnSnapshot[];
-  /** Turns where they had a land in hand at the start of their main phase but didn't play one that turn. */
+  /** Turns where they still had a land in hand entering Main 2 despite not playing one that turn. */
   missedLandDropTurns: number[];
   /** First turn each untapped-lands threshold was reached, from turnSnapshots. */
   manaThresholdTurns: ManaThresholdTurns;
@@ -93,8 +93,8 @@ export interface GameStats {
   eliminationOrder: EliminationEvent[];
   /** attacker -> defender -> total combat damage dealt this game. Only entries with damage > 0 are present. */
   threatMatrix: Record<string, Record<string, number>>;
-  /** round number -> total spells cast by anyone that round - pod-wide tempo, not per-deck. */
-  spellsByRound: Record<number, number>;
+  /** round number -> player -> spells that player cast that round. */
+  spellsByRound: Record<number, Record<string, number>>;
   players: PlayerGameStats[];
 }
 
@@ -163,7 +163,7 @@ export function computeGameStats(
   let firstCombatDamageTurn: number | null = null;
   const eliminationOrder: EliminationEvent[] = [];
   const threatMatrix = new Map<string, Map<string, number>>();
-  const spellsByRound = new Map<number, number>();
+  const spellsByRound = new Map<number, Map<string, number>>();
 
   // A card's owner never changes in Magic (only its controller can, under
   // theft effects) - so the first zone_change we see naming a card's owner
@@ -227,7 +227,11 @@ export function computeGameStats(
         if (stats && asString(event.action) === "cast") {
           stats.spellsCast += 1;
           stats.actionsTotal += 1;
-          spellsByRound.set(currentTurn, (spellsByRound.get(currentTurn) ?? 0) + 1);
+          if (player) {
+            if (!spellsByRound.has(currentTurn)) spellsByRound.set(currentTurn, new Map());
+            const roundRow = spellsByRound.get(currentTurn)!;
+            roundRow.set(player, (roundRow.get(player) ?? 0) + 1);
+          }
           if (stats.firstSpellCastTurn === null) stats.firstSpellCastTurn = currentTurn;
           const card = asString(event.card);
           const commanders = player ? commandersByPlayer[player] : undefined;
@@ -368,7 +372,7 @@ export function computeGameStats(
     firstCombatDamageTurn,
     eliminationOrder,
     threatMatrix: matrixToRecord(threatMatrix),
-    spellsByRound: Object.fromEntries(spellsByRound),
+    spellsByRound: Object.fromEntries([...spellsByRound].map(([round, row]) => [round, Object.fromEntries(row)])),
     players: [...perPlayer.values()],
   };
 }
@@ -684,13 +688,51 @@ export interface SpellsByRoundPoint {
 export function computeRunSpellsByRound(gameStatsList: GameStats[]): SpellsByRoundPoint[] {
   const totals = new Map<number, number>();
   for (const gs of gameStatsList) {
-    for (const [round, count] of Object.entries(gs.spellsByRound)) {
+    for (const [round, row] of Object.entries(gs.spellsByRound)) {
       const r = Number(round);
-      totals.set(r, (totals.get(r) ?? 0) + count);
+      const roundTotal = Object.values(row).reduce((s, n) => s + n, 0);
+      totals.set(r, (totals.get(r) ?? 0) + roundTotal);
     }
   }
   return [...totals.entries()]
     .filter(([round]) => round > 0)
     .sort((a, b) => a[0] - b[0])
     .map(([round, count]) => ({ round, count }));
+}
+
+/**
+ * Per-deck tempo: average spells cast per round, per player, across the
+ * run's games - "instead of pod-wide, I'd love to see average spells cast
+ * per deck" (direct user request). Averaged (sum / gamesPlayed) rather than
+ * summed, consistent with every other per-deck stat on this page - a
+ * round's total only reflects games that actually reached that round, same
+ * caveat computeRunSpellsByRound already has (a round few games reach reads
+ * noisier, not lower-effort).
+ */
+export function computeRunSpellsByRoundPerPlayer(
+  gameStatsList: GameStats[],
+  playerNames: string[],
+): Record<string, SpellsByRoundPoint[]> {
+  const totals = new Map<string, Map<number, number>>(playerNames.map((p) => [p, new Map()]));
+  const gamesPlayed = gameStatsList.length;
+
+  for (const gs of gameStatsList) {
+    for (const [round, row] of Object.entries(gs.spellsByRound)) {
+      const r = Number(round);
+      if (r <= 0) continue;
+      for (const [player, count] of Object.entries(row)) {
+        const playerTotals = totals.get(player);
+        if (!playerTotals) continue;
+        playerTotals.set(r, (playerTotals.get(r) ?? 0) + count);
+      }
+    }
+  }
+
+  const result: Record<string, SpellsByRoundPoint[]> = {};
+  for (const [player, byRound] of totals) {
+    result[player] = [...byRound.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([round, total]) => ({ round, count: gamesPlayed > 0 ? total / gamesPlayed : 0 }));
+  }
+  return result;
 }

@@ -661,6 +661,47 @@ button.secondary {
   flex-wrap: wrap;
 }
 
+.simulating-progress {
+  margin: 8px 0 16px;
+}
+
+.simulating-progress-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--table-head-bg);
+  overflow: hidden;
+}
+
+.simulating-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+.simulating-progress-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: simulating-sweep 1.6s linear infinite;
+}
+
+@keyframes simulating-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simulating-progress-sweep {
+    animation: none;
+  }
+}
+
 button.danger {
   background: #c0392b;
 }

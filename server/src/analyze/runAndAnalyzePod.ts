@@ -42,7 +42,7 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
   const { playerNames, commandersByPlayer } = buildPlayerRoster(opts.deckPaths);
   const createdAt = new Date().toISOString();
 
-  writeRunSummary({
+  const runningSummary: RunSummary = {
     runId: opts.runId,
     createdAt,
     status: "running",
@@ -56,7 +56,8 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
     completedGames: 0,
     winsByPlayer: {},
     games: [],
-  });
+  };
+  writeRunSummary(runningSummary);
 
   try {
     const batch = await runForgeBatch(opts.deckPaths, {
@@ -64,6 +65,13 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
       games: opts.games,
       format: "Commander",
       clockSeconds: opts.clockSeconds,
+      // Real progress instead of a static "0/N" until the whole batch
+      // finishes - see forgeRunner.ts's incremental stdout scan. Only
+      // completedGames changes here; the full per-game analysis (games
+      // array) still only happens once, below, after the batch closes.
+      onGameComplete: (completedGames) => {
+        writeRunSummary({ ...runningSummary, completedGames });
+      },
     });
 
     const winsByPlayer: Record<string, number> = { Draw: 0 };

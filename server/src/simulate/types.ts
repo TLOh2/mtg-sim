@@ -11,6 +11,8 @@ export interface BatchRunOptions {
   games: number;
   format: string;
   clockSeconds: number;
+  /** Called as each individual game finishes (not just once, at the very end) - see forgeRunner.ts's incremental stdout scan. Lets the caller persist real progress instead of the whole run reading 0/N until the entire batch completes. */
+  onGameComplete?: (completedCount: number) => void;
 }
 
 export interface GameResult {

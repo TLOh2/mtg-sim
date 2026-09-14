@@ -30,6 +30,15 @@ function readAnalyticsEvents(analyticsDir: string, gameIndex: number): Analytics
   }
 }
 
+// SimulateMatch.java prints this the instant each individual game finishes
+// (win or draw), well before the batch itself exits - see
+// simulateSingleMatch's `System.out.printf("\nGame Result: Game %d ended...`
+// calls. Matching against the growing stdout buffer as chunks arrive (not
+// waiting for the process to close) is what makes real incremental progress
+// possible instead of everything showing up at once when the whole batch
+// finishes - see runAndAnalyzePod.ts's onGameComplete usage.
+const GAME_RESULT_LINE = /^Game Result: Game \d+ ended/gm;
+
 /**
  * Runs a batch of Forge Commander games for a pod of decks (spec.json
  * defaults: 4 decks, 20 games) and returns structured per-game results.
@@ -66,7 +75,21 @@ export function runForgeBatch(deckDckPaths: string[], opts: BatchRunOptions): Pr
 
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (chunk) => (stdout += chunk));
+    let reportedGames = 0;
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      if (!opts.onGameComplete) return;
+      // Re-scanning the whole buffer each chunk (rather than tracking a
+      // read offset) is simplest and cheap enough at this scale (a
+      // handful of short lines per game, not the full game log - `-q`
+      // quiet mode isn't used here, but this pattern is a tiny fraction
+      // of stdout either way).
+      const count = (stdout.match(GAME_RESULT_LINE) ?? []).length;
+      if (count > reportedGames) {
+        reportedGames = count;
+        opts.onGameComplete(count);
+      }
+    });
     child.stderr.on("data", (chunk) => (stderr += chunk));
 
     child.on("error", reject);

@@ -3,9 +3,35 @@ import { api } from "../api";
 import type { Award, CardCastCount, DeckAggregateStats, RunDetail, RunStats, SpellsByRoundPoint } from "../types";
 import { ThreatMatrixTable } from "./ThreatMatrix";
 import { StatusBadge, WinRateBar, shortName } from "./RunList";
-import { HorizontalBarChart, LineChart } from "./Charts";
+import { HorizontalBarChart, LineChart, seriesColor } from "./Charts";
 
 const POLL_MS = 4000;
+
+/**
+ * completedGames now updates in real time as each game actually finishes
+ * (see server/src/simulate/forgeRunner.ts's incremental stdout scan) -
+ * previously it stayed at 0 for the entire batch and jumped straight to
+ * the final count once everything closed, which read as broken/frozen on
+ * a long run. The animated sweep on top of the real fill exists for the
+ * gaps between individual games finishing (each can take a minute or more)
+ * so the page still visibly does something during that wait, not just
+ * when a count ticks up.
+ */
+function SimulatingProgress({ completedGames, requestedGames }: { completedGames: number; requestedGames: number }) {
+  const pct = requestedGames > 0 ? Math.min(100, Math.round((completedGames / requestedGames) * 100)) : 0;
+  return (
+    <div className="simulating-progress">
+      <div className="simulating-progress-track">
+        <div className="simulating-progress-fill" style={{ width: `${pct}%` }} />
+        <div className="simulating-progress-sweep" />
+      </div>
+      <p className="muted">
+        Simulating... {completedGames}/{requestedGames} games completed. This page updates automatically as each
+        game finishes.
+      </p>
+    </div>
+  );
+}
 
 export function RunDetailView({
   runId,
@@ -142,10 +168,7 @@ export function RunDetailView({
       {actionError && <p className="error">{actionError}</p>}
 
       {run.status === "running" && (
-        <p className="muted">
-          Simulating... this can take a while for a full batch. This page updates automatically, or come back
-          later.
-        </p>
+        <SimulatingProgress completedGames={run.completedGames} requestedGames={run.requestedGames} />
       )}
       {run.status === "failed" && <p className="error">Run failed: {run.error}</p>}
       {run.status === "cancelled" && <p className="muted">Run was cancelled before it finished.</p>}
@@ -163,6 +186,7 @@ export function RunDetailView({
               awards={stats.awards}
               threatMatrix={stats.threatMatrix}
               spellsByRound={stats.spellsByRound}
+              spellsByRoundPerPlayer={stats.spellsByRoundPerPlayer}
               totalGames={run.completedGames}
             />
           )}
@@ -201,6 +225,7 @@ function DeckStatsSection({
   awards,
   threatMatrix,
   spellsByRound,
+  spellsByRoundPerPlayer,
   totalGames,
 }: {
   aggregate: DeckAggregateStats[];
@@ -209,6 +234,7 @@ function DeckStatsSection({
   awards: Award[];
   threatMatrix: Record<string, Record<string, number>>;
   spellsByRound: SpellsByRoundPoint[];
+  spellsByRoundPerPlayer: Record<string, SpellsByRoundPoint[]>;
   totalGames: number;
 }) {
   const winRateData = aggregate.map((a) => ({
@@ -294,8 +320,10 @@ function DeckStatsSection({
         <>
           <h3>Mana &amp; consistency</h3>
           <p className="stats-caveat">
-            From per-turn hand/mana snapshots taken entering each player's own Main 1 (see AnalyticsEventLogger.java)
-            - older runs won't have this data. "Missed land drops" counts turns with a land sitting unplayed in
+            From per-turn hand/mana snapshots taken entering each player's own Main 2 - after that turn's own land
+            drop and Main 1 spells, so "reaches N mana" reflects mana actually available that turn (see
+            AnalyticsEventLogger.java) - older runs won't have this data. "Missed land drops" counts turns with a
+            land sitting unplayed in
             hand. "Mana efficiency" is mana spent that turn / untapped lands available that turn, averaged - above
             1 means rocks/dorks are pulling weight beyond lands alone, below 1 means mana's going unused. "Curve
             efficiency" is a spell's mana value / the round it was cast in, averaged across every spell cast -
@@ -337,7 +365,10 @@ function DeckStatsSection({
       <p className="stats-caveat">
         Average total damage each deck dealt per game (combat + non-combat, e.g. burn spells like Chandra's
         Ignition), attributed by tracing each damage source card back to its owner (owners don't change hands in
-        Magic, only control does) - so this is "who's actually doing the beating," not just who's taking it.
+        Magic, only control does) - so this is "who's actually doing the beating," not just who's taking it. The
+        percentages below are each column's share of total offensive output - combat damage + non-combat damage +
+        non-damage life loss combined - not just the two damage columns, so a deck that leans on life-loss effects
+        (Sméagol-style) doesn't read as more combat-focused than it actually is.
       </p>
       <HorizontalBarChart data={totalDamageDealtData} valueFormatter={(v) => v.toFixed(1)} />
       <table className="deck-stats-table">
@@ -354,9 +385,10 @@ function DeckStatsSection({
         </thead>
         <tbody>
           {aggregate.map((a) => {
-            const total = a.avgCombatDamageDealt + a.avgNonCombatDamageDealt;
+            const total = a.avgCombatDamageDealt + a.avgNonCombatDamageDealt + a.avgNonDamageLifeLossDealt;
             const combatPct = total > 0 ? Math.round((a.avgCombatDamageDealt / total) * 100) : null;
             const nonCombatPct = total > 0 ? Math.round((a.avgNonCombatDamageDealt / total) * 100) : null;
+            const lifeLossPct = total > 0 ? Math.round((a.avgNonDamageLifeLossDealt / total) * 100) : null;
             return (
               <tr key={a.player}>
                 <td>{shortName(a.player)}</td>
@@ -369,7 +401,10 @@ function DeckStatsSection({
                   {nonCombatPct !== null && <span className="muted"> ({nonCombatPct}%)</span>}
                 </td>
                 <td>{a.avgCommanderDamageDealt > 0 ? a.avgCommanderDamageDealt.toFixed(1) : "—"}</td>
-                <td>{a.avgNonDamageLifeLossDealt > 0 ? a.avgNonDamageLifeLossDealt.toFixed(1) : "—"}</td>
+                <td>
+                  {a.avgNonDamageLifeLossDealt > 0 ? a.avgNonDamageLifeLossDealt.toFixed(1) : "—"}
+                  {lifeLossPct !== null && lifeLossPct > 0 && <span className="muted"> ({lifeLossPct}%)</span>}
+                </td>
               </tr>
             );
           })}
@@ -387,14 +422,18 @@ function DeckStatsSection({
         <>
           <h3>Tempo: spells cast per round</h3>
           <p className="stats-caveat">
-            Total spells cast by anyone, pod-wide, summed across {totalGames} game{totalGames === 1 ? "" : "s"} -
-            when does the table actually start doing things.
+            Average spells cast per round, per deck, across {totalGames} game{totalGames === 1 ? "" : "s"} - when
+            does each deck actually start doing things, and who's outpacing the table.
           </p>
           <LineChart
-            series={[{ label: "Spells cast", points: spellsByRound.map((p) => ({ x: p.round, y: p.count })) }]}
+            series={aggregate.map((a, i) => ({
+              label: shortName(a.player),
+              color: seriesColor(i),
+              points: (spellsByRoundPerPlayer[a.player] ?? []).map((p) => ({ x: p.round, y: p.count })),
+            }))}
             yMin={0}
             xLabel="Round"
-            yLabel="Spells cast"
+            yLabel="Avg. spells cast"
           />
         </>
       )}
