@@ -2,6 +2,7 @@ import { useState } from "react";
 import { RunList } from "./components/RunList";
 import { RunDetailView } from "./components/RunDetailView";
 import { GameLogView } from "./components/GameLogView";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 type View = { name: "list" } | { name: "run"; runId: string } | { name: "game"; runId: string; gameIndex: number };
 
@@ -10,8 +11,9 @@ export default function App() {
 
   return (
     <div className="app">
-      <header>
+      <header className="app-header">
         <h1>Commander Simulator Results</h1>
+        <ThemeToggle />
       </header>
       <main>
         {view.name === "list" && <RunList onSelectRun={(runId) => setView({ name: "run", runId })} />}
@@ -20,6 +22,7 @@ export default function App() {
             runId={view.runId}
             onSelectGame={(gameIndex) => setView({ name: "game", runId: view.runId, gameIndex })}
             onBack={() => setView({ name: "list" })}
+            onRunStarted={(runId) => setView({ name: "run", runId })}
           />
         )}
         {view.name === "game" && (

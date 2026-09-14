@@ -97,6 +97,12 @@ export function StatusBadge({ status, error }: { status: RunListEntry["status"];
         failed
       </span>
     );
+  if (status === "cancelled")
+    return (
+      <span className="status-badge status-cancelled" title={error}>
+        cancelled
+      </span>
+    );
   return <span className="status-badge status-complete">complete</span>;
 }
 

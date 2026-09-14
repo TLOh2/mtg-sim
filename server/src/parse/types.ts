@@ -50,3 +50,13 @@ export interface TurningPoint {
   eventIndex: number;
   description: string;
 }
+
+// Structured events from Forge's internal typed event bus (see
+// engine/forge/forge-gui-desktop/.../AnalyticsEventLogger.java), captured
+// alongside the free-text game log above rather than parsed from it. Phase 1
+// subset (see mtg-sim-analytics-spec.md) - loosely typed since the schema is
+// still being validated against real output; tighten once it settles.
+export interface AnalyticsEvent {
+  type: string;
+  [field: string]: unknown;
+}

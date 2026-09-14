@@ -8,6 +8,59 @@
   --accent: #6d4aff;
   --turning-point: #fff3cd;
   --turning-point-border: #f0c14b;
+  --row-hover: #f5f3ff;
+  --table-head-bg: #f5f5f5;
+  --chip-bg: #f0ecff;
+  --chip-border: #d9d0ff;
+  --log-bg: #111318;
+  --log-text: #d8dee9;
+  --chart-grid: #e0e0e0;
+  --chart-axis-text: #6b6b6b;
+}
+
+/* Dark mode: system preference by default (no explicit choice saved yet),
+   explicit data-theme attribute always wins either direction - see
+   ThemeToggle.tsx, which persists the user's choice to localStorage. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #16171c;
+    --panel: #1e2027;
+    --border: #33353e;
+    --text: #e7e8ec;
+    --muted: #9a9ca6;
+    --accent: #9c85ff;
+    --turning-point: #4a3c14;
+    --turning-point-border: #f0c14b;
+    --row-hover: #262838;
+    --table-head-bg: #23252d;
+    --chip-bg: #2a2740;
+    --chip-border: #453d70;
+    --log-bg: #0b0c0f;
+    --log-text: #d8dee9;
+    --chart-grid: #33353e;
+    --chart-axis-text: #9a9ca6;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #16171c;
+  --panel: #1e2027;
+  --border: #33353e;
+  --text: #e7e8ec;
+  --muted: #9a9ca6;
+  --accent: #9c85ff;
+  --turning-point: #4a3c14;
+  --turning-point-border: #f0c14b;
+  --row-hover: #262838;
+  --table-head-bg: #23252d;
+  --chip-bg: #2a2740;
+  --chip-border: #453d70;
+  --log-bg: #0b0c0f;
+  --log-text: #d8dee9;
+  --chart-grid: #33353e;
+  --chart-axis-text: #9a9ca6;
 }
 
 * {
@@ -27,9 +80,23 @@ body {
   padding: 16px 20px 48px;
 }
 
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 header h1 {
   font-size: 1.4rem;
   margin: 12px 0 24px;
+}
+
+.theme-toggle {
+  font-size: 0.82rem;
+  padding: 6px 12px;
+  white-space: nowrap;
 }
 
 h2 {
@@ -82,7 +149,7 @@ h3 {
 .run-table th {
   color: var(--muted);
   font-weight: 600;
-  background: #f5f5f5;
+  background: var(--table-head-bg);
 }
 
 .clickable-row {
@@ -90,7 +157,7 @@ h3 {
 }
 
 .clickable-row:hover {
-  background: #f5f3ff;
+  background: var(--row-hover);
 }
 
 .win-rate-bar {
@@ -100,8 +167,8 @@ h3 {
 }
 
 .win-rate-chip {
-  background: #f0ecff;
-  border: 1px solid #d9d0ff;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 0.82rem;
@@ -109,8 +176,8 @@ h3 {
 }
 
 .log-timeline {
-  background: #111318;
-  color: #d8dee9;
+  background: var(--log-bg);
+  color: var(--log-text);
   border-radius: 8px;
   padding: 12px;
   font-family: ui-monospace, "SF Mono", Consolas, monospace;
@@ -303,4 +370,218 @@ button.secondary {
   background: #fde2e1;
   color: #b3261e;
   cursor: help;
+}
+
+.status-cancelled {
+  background: var(--table-head-bg);
+  color: var(--muted);
+}
+
+/* Charts */
+
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.bar-chart-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-chart-label {
+  flex: 0 0 auto;
+  width: 160px;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.bar-chart-track {
+  flex: 1 1 auto;
+  background: var(--table-head-bg);
+  border-radius: 4px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.bar-chart-fill {
+  height: 100%;
+  border-radius: 4px;
+  min-width: 2px;
+}
+
+.bar-chart-value {
+  flex: 0 0 auto;
+  width: 3.5em;
+  text-align: right;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.line-chart-wrap {
+  margin: 8px 0 16px;
+}
+
+.line-chart {
+  width: 100%;
+  height: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.line-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.chart-axis-caption {
+  margin-top: 4px;
+  font-size: 0.78rem;
+}
+
+/* Deck diagnostics */
+
+.deck-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 16px;
+}
+
+.deck-stats-table th,
+.deck-stats-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.deck-stats-table th {
+  color: var(--muted);
+  font-weight: 600;
+  background: var(--table-head-bg);
+}
+
+.bracket-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
+}
+
+.mana-issue-flag {
+  color: #b3261e;
+  font-size: 0.8rem;
+}
+
+.stats-caveat {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: -4px;
+}
+
+.cards-cast-details {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+
+.cards-cast-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.cards-cast-details .bar-chart {
+  margin-top: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* Story view */
+
+.story-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.story-toggle button.active {
+  background: var(--accent);
+  color: white;
+}
+
+.story-turn-group {
+  margin-bottom: 10px;
+}
+
+.story-turn-heading {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 14px 0 4px;
+}
+
+.story-line {
+  padding: 3px 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.story-line .player-name {
+  font-weight: 600;
+}
+
+.story-line.story-outcome {
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 8px;
+}
+
+.story-line.story-mulligan {
+  color: var(--muted);
+}
+
+.run-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+button.danger {
+  background: #c0392b;
+}
+
+button.danger:hover {
+  background: #a5311f;
 }

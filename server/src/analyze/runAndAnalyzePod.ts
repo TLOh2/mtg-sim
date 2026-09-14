@@ -3,9 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runForgeBatch } from "../simulate/forgeRunner.js";
+import { wasCancelled } from "../simulate/activeRuns.js";
 import { buildPlayerRoster } from "../convert/readDck.js";
 import { parseGameLog } from "../parse/parseGameLog.js";
 import { detectTurningPoints } from "../parse/turningPoints.js";
+import type { DeckSelection } from "../decks/types.js";
 import type { RunSummary } from "./types.js";
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
@@ -23,6 +25,8 @@ export interface RunAndAnalyzeOptions {
   clockSeconds: number;
   /** Present when this run was started from Moxfield URLs via the dashboard. */
   deckUrls?: string[];
+  /** The resolved { deckId } for each player, in seat order - persisted so "restart with same decks" doesn't need the original paste text again. */
+  deckSelections?: DeckSelection[];
 }
 
 /**
@@ -43,9 +47,12 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
     createdAt,
     status: "running",
     deckUrls: opts.deckUrls,
+    deckSelections: opts.deckSelections,
     deckPaths: opts.deckPaths,
     playerNames,
+    commandersByPlayer,
     requestedGames: opts.games,
+    clockSeconds: opts.clockSeconds,
     completedGames: 0,
     winsByPlayer: {},
     games: [],
@@ -80,6 +87,7 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
         events,
         turningPoints,
         rawLog: game.rawLog,
+        analyticsEvents: game.analyticsEvents ?? [],
       };
     });
 
@@ -88,9 +96,12 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
       createdAt,
       status: "complete",
       deckUrls: opts.deckUrls,
+      deckSelections: opts.deckSelections,
       deckPaths: opts.deckPaths,
       playerNames,
+      commandersByPlayer,
       requestedGames: opts.games,
+      clockSeconds: opts.clockSeconds,
       completedGames: batch.completedGames,
       winsByPlayer,
       games,
@@ -99,15 +110,19 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
     writeRunSummary(summary);
     return summary;
   } catch (err) {
+    const cancelled = wasCancelled(opts.runId);
     writeRunSummary({
       runId: opts.runId,
       createdAt,
-      status: "failed",
-      error: err instanceof Error ? err.message : String(err),
+      status: cancelled ? "cancelled" : "failed",
+      error: cancelled ? "Cancelled by user" : err instanceof Error ? err.message : String(err),
       deckUrls: opts.deckUrls,
+      deckSelections: opts.deckSelections,
       deckPaths: opts.deckPaths,
       playerNames,
+      commandersByPlayer,
       requestedGames: opts.games,
+      clockSeconds: opts.clockSeconds,
       completedGames: 0,
       winsByPlayer: {},
       games: [],

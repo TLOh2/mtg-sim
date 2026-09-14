@@ -14,8 +14,10 @@ import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { RUNS_DIR } from "../analyze/runAndAnalyzePod.js";
+import { RUNS_DIR, writeRunSummary } from "../analyze/runAndAnalyzePod.js";
 import { startPodFromDecklistText } from "../analyze/startPodFromDecklistText.js";
+import { cancelRun } from "../simulate/activeRuns.js";
+import { computeCardCastCounts, computeGameStats, computeRunAggregateStats } from "../analyze/gameStats.js";
 import { listDecks } from "../decks/deckLibrary.js";
 import type { DeckSelection } from "../decks/types.js";
 import type { RunSummary } from "../analyze/types.js";
@@ -238,8 +240,57 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (parts.length === 4 && parts[3] === "cancel" && req.method === "POST") {
+    if (run.status !== "running") {
+      sendJson(res, 409, { error: `run ${runId} is not running (status: ${run.status})` });
+      return;
+    }
+    const cancelled = cancelRun(runId);
+    if (!cancelled) {
+      // Status still says "running" on disk, but the process behind it is
+      // gone (e.g. the API server itself restarted) - nothing left to kill.
+      sendJson(res, 409, { error: `no active process found for run ${runId} - it may have already stopped` });
+      return;
+    }
+    sendJson(res, 202, { cancelled: true });
+    return;
+  }
+
+  // Derived, on-the-fly stats (see gameStats.ts) - not persisted, computed
+  // fresh from analyticsEvents each request so the formulas can be tuned
+  // without re-running any simulations.
+  if (parts.length === 4 && parts[3] === "stats") {
+    const games = run.games.map((g) =>
+      computeGameStats(g.gameIndex, g.analyticsEvents ?? [], run.playerNames, run.commandersByPlayer ?? {}),
+    );
+    const gameStatsByIndex = new Map(games.map((g) => [g.gameIndex, g]));
+    const aggregate = computeRunAggregateStats(run.games, gameStatsByIndex, run.playerNames);
+    const cardCastCounts = computeCardCastCounts(run.games, run.playerNames);
+    sendJson(res, 200, { games, aggregate, cardCastCounts });
+    return;
+  }
+
   sendJson(res, 404, { error: "not found" });
 });
+
+// A run left as "running" on disk when this process starts can only mean
+// the previous server process died (crash, restart, machine restart) with
+// that run's Forge process as one of its children - which died with it. No
+// process can ever come back to finish it, so it would otherwise sit
+// "running" forever and never let the dashboard's polling loop stop. Fix up
+// any such stragglers once at boot, before serving any requests.
+function reconcileOrphanedRuns(): void {
+  for (const runId of listRunIds()) {
+    const run = loadRun(runId);
+    if (run?.status !== "running") continue;
+    writeRunSummary({
+      ...run,
+      status: "failed",
+      error: "Interrupted: the server restarted while this run was in progress. Start a new run.",
+    });
+  }
+}
+reconcileOrphanedRuns();
 
 server.listen(PORT, () => {
   console.log(`API server listening on http://localhost:${PORT}`);

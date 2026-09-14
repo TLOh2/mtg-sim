@@ -33,11 +33,12 @@ async function resolveAndStage(
   selection: DeckSelection,
   playerIndex: number,
   stagingDir: string,
-): Promise<{ label: string; dckPath: string }> {
+): Promise<{ label: string; dckPath: string; deckId: string }> {
   let label: string;
   let decklistText: string;
-  let isFreshPaste: boolean;
+  let deckId: string;
 
+  let isFreshPaste: boolean;
   if ("deckId" in selection) {
     const saved = getDeck(selection.deckId);
     if (!saved) {
@@ -45,22 +46,24 @@ async function resolveAndStage(
     }
     label = saved.label;
     decklistText = saved.decklistText;
+    deckId = saved.id;
     isFreshPaste = false;
   } else {
     label = selection.label.trim() || `Player ${playerIndex + 1}`;
     decklistText = selection.decklistText;
+    deckId = ""; // filled in below, only once the paste has parsed successfully
     isFreshPaste = true;
   }
 
   const deck = parseMoxfieldTextExport(decklistText, label);
 
   if (isFreshPaste) {
-    saveDeck(label, decklistText);
+    deckId = saveDeck(label, decklistText).id;
   }
 
   const dckPath = path.join(stagingDir, `player${playerIndex + 1}.dck`);
   writeFileSync(dckPath, toDck(deck), "utf-8");
-  return { label, dckPath };
+  return { label, dckPath, deckId };
 }
 
 /**
@@ -90,10 +93,15 @@ export async function startPodFromDecklistText(opts: StartPodFromDecklistsOption
     deckPaths: [],
     playerNames: [],
     requestedGames: games,
+    clockSeconds,
     completedGames: 0,
     winsByPlayer: {},
     games: [],
   });
+
+  let deckPaths: string[];
+  let deckSelections: DeckSelection[];
+  let resolvedLabels: string[];
 
   try {
     const stagingDir = mkdtempSync(path.join(os.tmpdir(), `mtg-sim-${runId}-`));
@@ -115,11 +123,16 @@ export async function startPodFromDecklistText(opts: StartPodFromDecklistsOption
       throw new Error(`${failures.length}/${selections.length} decks failed - ${detail}`);
     }
 
-    const resolved = (results as PromiseFulfilledResult<{ label: string; dckPath: string }>[]).map((r) => r.value);
-    const deckPaths = resolved.map((d) => d.dckPath);
-
-    await runAndAnalyzePod({ runId, deckPaths, games, clockSeconds, deckUrls: resolved.map((d) => d.label) });
+    const resolved = (results as PromiseFulfilledResult<{ label: string; dckPath: string; deckId: string }>[]).map(
+      (r) => r.value,
+    );
+    deckPaths = resolved.map((d) => d.dckPath);
+    deckSelections = resolved.map((d) => ({ deckId: d.deckId }));
+    resolvedLabels = resolved.map((d) => d.label);
   } catch (err) {
+    // Deck resolution/staging failed before Forge ever ran, so
+    // runAndAnalyzePod never got a chance to persist anything - this is the
+    // only place that needs to write a "failed" summary for this error.
     writeRunSummary({
       runId,
       createdAt,
@@ -129,9 +142,20 @@ export async function startPodFromDecklistText(opts: StartPodFromDecklistsOption
       deckPaths: [],
       playerNames: [],
       requestedGames: games,
+      clockSeconds,
       completedGames: 0,
       winsByPlayer: {},
       games: [],
     });
+    return;
+  }
+
+  try {
+    await runAndAnalyzePod({ runId, deckPaths, games, clockSeconds, deckUrls: resolvedLabels, deckSelections });
+  } catch {
+    // runAndAnalyzePod already persisted the definitive final summary
+    // ("failed" or "cancelled" - see wasCancelled) internally before
+    // re-throwing. Nothing left to do here except stop this fire-and-forget
+    // promise from becoming an unhandled rejection.
   }
 }
