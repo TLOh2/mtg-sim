@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { AI_PROFILE_DESCRIPTIONS, AI_PROFILES } from "../types";
 import type { DeckLibraryEntry, DeckSelection, GameDurationStats } from "../types";
 
 interface SlotState {
   deckId: string; // "" means "paste new" for this slot
   label: string;
   decklistText: string;
+  aiProfile: string;
 }
 
-const emptySlot = (): SlotState => ({ deckId: "", label: "", decklistText: "" });
+const emptySlot = (): SlotState => ({ deckId: "", label: "", decklistText: "", aiProfile: "Default" });
 
 // Used only when there's no history yet to estimate from (computed from
 // what we've actually observed in testing: games routinely finish well
@@ -61,7 +63,8 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
           ? { deckId: slot.deckId }
           : { label: slot.label.trim() || `Player ${i + 1}`, decklistText: slot.decklistText.trim() },
       );
-      const { runId } = await api.startRun(decksPayload, games, clockSeconds);
+      const aiProfiles = slots.map((slot) => slot.aiProfile);
+      const { runId } = await api.startRun(decksPayload, games, clockSeconds, aiProfiles);
       onStarted(runId);
     } catch (err) {
       setError(String((err as Error).message ?? err));
@@ -133,6 +136,21 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
               />
             </>
           )}
+
+          <label className="deck-label-row" title={AI_PROFILE_DESCRIPTIONS[slot.aiProfile as keyof typeof AI_PROFILE_DESCRIPTIONS]}>
+            AI profile
+            <select
+              value={slot.aiProfile}
+              onChange={(e) => updateSlot(i, { aiProfile: e.target.value })}
+              disabled={submitting}
+            >
+              {AI_PROFILES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       ))}
 

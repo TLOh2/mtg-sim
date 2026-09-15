@@ -35,8 +35,8 @@ export const api = {
   getGame: (runId: string, gameIndex: number) =>
     getJson<GameDetail>(`/api/runs/${encodeURIComponent(runId)}/games/${gameIndex}`),
   getStats: (runId: string) => getJson<RunStats>(`/api/runs/${encodeURIComponent(runId)}/stats`),
-  startRun: (decks: DeckSelection[], games?: number, clockSeconds?: number) =>
-    postJson<StartRunResponse>("/api/runs", { decks, games, clockSeconds }),
+  startRun: (decks: DeckSelection[], games?: number, clockSeconds?: number, aiProfiles?: string[]) =>
+    postJson<StartRunResponse>("/api/runs", { decks, games, clockSeconds, aiProfiles }),
   cancelRun: (runId: string) => postJson<{ cancelled: boolean }>(`/api/runs/${encodeURIComponent(runId)}/cancel`, {}),
   listDecks: () => getJson<DeckLibraryEntry[]>("/api/decks"),
   getDeckLeaderboard: () => getJson<DeckLeaderboardEntry[]>("/api/decks/leaderboard"),

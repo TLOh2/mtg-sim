@@ -13,6 +13,8 @@ export interface StartPodFromDecklistsOptions {
   decks: DeckSelection[];
   games: number;
   clockSeconds: number;
+  /** Per-seat Forge AI profile override, same order as `decks` - see RunAndAnalyzeOptions. */
+  aiProfiles?: string[];
 }
 
 /** Best-effort label for display, computable even for a selection that later fails to resolve/parse. */
@@ -88,7 +90,7 @@ async function resolveAndStage(
  * "running"/"complete"/"failed" status), not this function's return value.
  */
 export async function startPodFromDecklistText(opts: StartPodFromDecklistsOptions): Promise<void> {
-  const { runId, decks: selections, games, clockSeconds } = opts;
+  const { runId, decks: selections, games, clockSeconds, aiProfiles } = opts;
   const createdAt = new Date().toISOString();
   const deckUrls = selections.map(describeSelection);
 
@@ -158,7 +160,7 @@ export async function startPodFromDecklistText(opts: StartPodFromDecklistsOption
   }
 
   try {
-    await runAndAnalyzePod({ runId, deckPaths, games, clockSeconds, deckUrls: resolvedLabels, deckSelections });
+    await runAndAnalyzePod({ runId, deckPaths, games, clockSeconds, deckUrls: resolvedLabels, deckSelections, aiProfiles });
   } catch {
     // runAndAnalyzePod already persisted the definitive final summary
     // ("failed" or "cancelled" - see wasCancelled) internally before

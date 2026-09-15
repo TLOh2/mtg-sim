@@ -113,6 +113,10 @@ function readBody(req: import("node:http").IncomingMessage): Promise<string> {
 
 const MAX_GAMES = 200;
 const MAX_CLOCK_SECONDS = 1800;
+// Forge's shipped AI profiles - see engine/forge/forge-gui/res/ai/*.ai. "Experimental" is
+// the only one with SACRIFICE_DEFAULT_PREF_ENABLE on, which is what actually gets an AI
+// seat to use cards with sacrifice costs instead of sitting on them.
+const AI_PROFILES = ["Default", "Cautious", "Reckless", "Experimental"];
 
 // Path shape: /api/runs, /api/runs/:runId (summary without per-game rawLog/events),
 // /api/runs/:runId/games/:gameIndex (one game's full events + rawLog).
@@ -168,7 +172,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (parts.length === 2 && req.method === "POST") {
-    let payload: { decks?: unknown; games?: unknown; clockSeconds?: unknown };
+    let payload: { decks?: unknown; games?: unknown; clockSeconds?: unknown; aiProfiles?: unknown };
     try {
       payload = JSON.parse(await readBody(req));
     } catch {
@@ -201,6 +205,24 @@ const server = createServer(async (req, res) => {
     }
     const deckSelections = decks as DeckSelection[];
 
+    // Optional per-seat Forge AI profile override (see engine/forge/forge-gui/res/ai/*.ai
+    // and SimulateMatch.java's -a flag). "Default" (or omitting the field) reproduces
+    // Forge's own stock behavior exactly, so this is opt-in with no effect unless used.
+    let aiProfiles: string[] | undefined;
+    if (payload.aiProfiles !== undefined) {
+      if (
+        !Array.isArray(payload.aiProfiles) ||
+        payload.aiProfiles.length !== 4 ||
+        !payload.aiProfiles.every((p): p is string => typeof p === "string" && AI_PROFILES.includes(p))
+      ) {
+        sendJson(res, 400, {
+          error: `aiProfiles must be an array of 4 values, each one of: ${AI_PROFILES.join(", ")}`,
+        });
+        return;
+      }
+      aiProfiles = payload.aiProfiles;
+    }
+
     const games =
       typeof payload.games === "number" && Number.isFinite(payload.games)
         ? Math.min(Math.max(1, Math.floor(payload.games)), MAX_GAMES)
@@ -214,7 +236,7 @@ const server = createServer(async (req, res) => {
     // Fire-and-forget: startPodFromDecklistText persists all progress/errors
     // to data/runs/<runId>.json itself (see its own try/catch), so there's
     // nothing more to do with this promise here.
-    void startPodFromDecklistText({ runId, decks: deckSelections, games, clockSeconds });
+    void startPodFromDecklistText({ runId, decks: deckSelections, games, clockSeconds, aiProfiles });
 
     sendJson(res, 202, { runId, status: "running" });
     return;
@@ -224,16 +246,19 @@ const server = createServer(async (req, res) => {
     const runs = listRunIds()
       .map(loadRun)
       .filter((r): r is RunSummary => r !== null)
-      .map(({ runId, createdAt, status, error, playerNames, requestedGames, completedGames, winsByPlayer }) => ({
-        runId,
-        createdAt,
-        status,
-        error,
-        playerNames,
-        requestedGames,
-        completedGames,
-        winsByPlayer,
-      }))
+      .map(
+        ({ runId, createdAt, status, error, playerNames, requestedGames, completedGames, winsByPlayer, aiProfiles }) => ({
+          runId,
+          createdAt,
+          status,
+          error,
+          playerNames,
+          requestedGames,
+          completedGames,
+          winsByPlayer,
+          aiProfiles,
+        }),
+      )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     sendJson(res, 200, runs);
     return;

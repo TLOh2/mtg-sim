@@ -36,6 +36,8 @@ export interface RunSummary {
   requestedGames: number;
   /** The clock (see engine/run-sim.sh's -c) each game in this run was given, in seconds - persisted so "restart with same settings" can reuse it exactly. Undefined for older runs. */
   clockSeconds?: number;
+  /** Per-seat Forge AI profile, same order as playerNames - see SimulateMatch.java's -a flag. Undefined (or all "Default") for the common case: every seat on Forge's own stock AI. */
+  aiProfiles?: string[];
   completedGames: number;
   /** Wins per player name, including a "Draw" bucket - the dashboard's aggregate view. */
   winsByPlayer: Record<string, number>;

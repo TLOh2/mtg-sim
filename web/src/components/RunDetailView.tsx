@@ -191,6 +191,14 @@ export function RunDetailView({
         {run.completedGames}/{run.requestedGames} games completed &middot;{" "}
         {new Date(run.createdAt).toLocaleString()}
       </p>
+      {run.aiProfiles?.some((p) => p && p !== "Default") && (
+        <p className="muted">
+          AI profiles:{" "}
+          {run.playerNames
+            .map((name, i) => `${shortName(name)}: ${run.aiProfiles?.[i] || "Default"}`)
+            .join(", ")}
+        </p>
+      )}
 
       <div className="run-header-actions">
         {run.status === "running" && (

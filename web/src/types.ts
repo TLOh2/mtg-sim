@@ -13,6 +13,8 @@ export interface RunListEntry {
   requestedGames: number;
   completedGames: number;
   winsByPlayer: Record<string, number>;
+  /** Per-seat Forge AI profile, same order as playerNames - see server's SimulateMatch.java -a flag. Undefined (or all "Default") means every seat used Forge's stock AI. */
+  aiProfiles?: string[];
 }
 
 export interface GameSummary {
@@ -45,6 +47,16 @@ export interface DeckLibraryEntry {
 }
 
 export type DeckSelection = { deckId: string } | { label: string; decklistText: string };
+
+// Forge's shipped AI profiles - see engine/forge/forge-gui/res/ai/*.ai and server's AI_PROFILES
+// in api/server.ts (kept in sync by hand; this list rarely changes).
+export const AI_PROFILES = ["Default", "Cautious", "Reckless", "Experimental"] as const;
+export const AI_PROFILE_DESCRIPTIONS: Record<(typeof AI_PROFILES)[number], string> = {
+  Default: "Forge's standard AI behavior.",
+  Cautious: "More conservative - avoids risky attacks and trades.",
+  Reckless: "More aggressive - attacks and trades more freely, counters more often.",
+  Experimental: "Most willing to use sacrifice-cost cards and generate tokens; still being evaluated.",
+};
 
 export interface GameEvent {
   turn: number;
