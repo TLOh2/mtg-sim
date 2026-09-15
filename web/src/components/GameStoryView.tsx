@@ -37,6 +37,7 @@ interface StoryLine {
 }
 
 interface TurnGroup {
+  key: string;
   turn: number;
   activePlayer: string | null;
   lines: StoryLine[];
@@ -49,7 +50,8 @@ interface TurnGroup {
  * line is formatted for its medium.
  */
 function buildStoryGroups(events: AnalyticsEvent[]): TurnGroup[] {
-  const groups: TurnGroup[] = [{ turn: 0, activePlayer: null, lines: [] }];
+  let groupKey = 0;
+  const groups: TurnGroup[] = [{ key: `group-${groupKey++}`, turn: 0, activePlayer: null, lines: [] }];
   let current = groups[0];
   let lineKey = 0;
   let firstPlayer: string | null = null;
@@ -88,7 +90,7 @@ function buildStoryGroups(events: AnalyticsEvent[]): TurnGroup[] {
             round += 1;
           }
           flushDraws();
-          current = { turn: round, activePlayer: player, lines: [] };
+          current = { key: `group-${groupKey++}`, turn: round, activePlayer: player, lines: [] };
           groups.push(current);
         }
         break;
@@ -273,7 +275,7 @@ export function GameStoryView({ events }: { events: AnalyticsEvent[] }) {
   return (
     <div className="game-story">
       {nonEmptyGroups.map((g) => (
-        <div className="story-turn-group" key={g.turn}>
+        <div className="story-turn-group" key={g.key}>
           <div className="story-turn-heading">{turnHeading(g)}</div>
           {g.lines.map((line) => (
             <div className={`story-line${line.kind ? ` story-${line.kind}` : ""}`} key={line.key}>
