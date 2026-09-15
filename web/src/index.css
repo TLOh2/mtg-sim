@@ -879,23 +879,37 @@ button.danger:hover {
   color: var(--muted);
 }
 
+/* Explicit labels above each section, not just a divider - direct feedback
+   that a played land wasn't obviously landing in "the lands bucket" versus
+   the permanents above it (the data itself was correct when checked; the
+   two sections just didn't read as distinct enough at a glance). */
+.replay-section-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.replay-section-label:first-of-type {
+  margin-top: 0;
+}
+
 .replay-battlefield {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   min-height: 32px;
+  margin-bottom: 4px;
 }
 
 .replay-permanents {
-  margin-bottom: 8px;
-}
-
-.replay-lands {
-  padding-top: 8px;
-  border-top: 1px dashed var(--border);
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
 }
 
 .replay-card {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 6px;
@@ -938,6 +952,41 @@ button.danger:hover {
 .replay-card-counters {
   color: var(--muted);
   margin-top: 2px;
+}
+
+/* Card art on hover, per direct feedback: "add a Scryfall photo... a
+   visual would just be so helpful here." Anchored to the card itself
+   (not the cursor) so it doesn't jitter or need mouse-position tracking -
+   fixed positioning escapes any overflow:hidden ancestor and z-index
+   floats it above everything else on the page. */
+.replay-card-preview {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  margin-top: 4px;
+  pointer-events: none;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.replay-card-preview img {
+  display: block;
+  width: 220px;
+}
+
+.replay-card-preview-loading {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .replay-stack {

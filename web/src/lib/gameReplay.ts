@@ -135,8 +135,31 @@ export function computeCheckpoints(events: AnalyticsEvent[]): number[] {
   return checkpoints;
 }
 
-/** A short, human-readable line for what happened at one checkpoint event - shown as the replay's "current action" so a fast-moving moment (an attack, a cast) is actually readable instead of flashing by as raw event text. `shortName` controls how player names are displayed (the caller already has a convention for this - see RunList.tsx). */
-export function describeCheckpoint(event: AnalyticsEvent, shortName: (name: string) => string): string {
+/**
+ * life_change carries a "source" card name only sometimes - for combat/
+ * ability damage it's null on the life_change event itself, but a
+ * player_damaged event with the real source (verified against a real game:
+ * "Fanatic of Rhonas" dealing 1 damage) always fires immediately before it.
+ * Scans a short window backward for one matching the same player and
+ * amount, so "why did they lose life" (a real point of confusion watching
+ * this - "I don't know why they lost life... guessing there's a land") has
+ * an actual answer instead of just the number changing.
+ */
+function findDamageSource(events: AnalyticsEvent[], lifeChangeIndex: number): string | undefined {
+  const lc = events[lifeChangeIndex];
+  const player = asStr(lc.player);
+  const amount = (asNum(lc.oldLife) ?? 0) - (asNum(lc.newLife) ?? 0);
+  for (let i = lifeChangeIndex - 1; i >= 0 && i >= lifeChangeIndex - 5; i--) {
+    const e = events[i];
+    if (e.type !== "player_damaged") continue;
+    if (asStr(e.target) === player && asNum(e.amount) === amount) return asStr(e.source);
+  }
+  return undefined;
+}
+
+/** A short, human-readable line for what happened at one checkpoint event - shown as the replay's "current action" so a fast-moving moment (an attack, a cast) is actually readable instead of flashing by as raw event text. `shortName` controls how player names are displayed (the caller already has a convention for this - see RunList.tsx). Takes the full event array + index (not just one event) so a life_change without its own source can look back at the player_damaged that caused it. */
+export function describeCheckpoint(events: AnalyticsEvent[], index: number, shortName: (name: string) => string): string {
+  const event = events[index];
   const player = () => shortName(asStr(event.player) ?? "?");
   switch (event.type) {
     case "turn_began":
@@ -144,7 +167,7 @@ export function describeCheckpoint(event: AnalyticsEvent, shortName: (name: stri
     case "life_change": {
       const from = asNum(event.oldLife);
       const to = asNum(event.newLife);
-      const source = asStr(event.source);
+      const source = asStr(event.source) ?? (event.isDamage === true ? findDamageSource(events, index) : undefined);
       const delta = from !== undefined && to !== undefined ? `${from} → ${to}` : "";
       return `${player()}: ${delta}${source ? ` (${source})` : ""}`;
     }
@@ -172,16 +195,34 @@ export function describeCheckpoint(event: AnalyticsEvent, shortName: (name: stri
 }
 
 /**
+ * A spell/ability's target description is a bracketed list of card
+ * descriptions with the card's own id in parens - e.g.
+ * "[Rampaging Yao Guai (376), Grave Researcher (266)]" for a multi-target
+ * effect (verified against real output; SpellAbilityView.targetDescription
+ * in AnalyticsEventLogger.java). Extracts those ids so a targeted spell can
+ * resolve who it's affecting via the board's own card map, rather than
+ * guessing from the target's name (which isn't unique - two players can
+ * each control a card with the same name).
+ */
+function parseTargetCardIds(target: string | undefined): number[] {
+  if (!target) return [];
+  return [...target.matchAll(/\((\d+)\)/g)].map((m) => Number(m[1]));
+}
+
+/**
  * Who's acting and who it's happening to for one checkpoint - e.g. an
  * attack highlights the attacking player as `actor` and whoever's being
  * attacked as `reactors`, so an action and its target read as connected
  * instead of the board just changing with no visual link between them
  * (direct user feedback: wanting to see "call and response" between an
- * attacker and the player taking the hit). Only defined for event types
- * where an actor/target relationship actually exists - a land drop or a
- * new turn beginning has nothing to highlight.
+ * attacker and the player taking the hit, and later - watching Magus Lucea
+ * Kane cast Chaos Warp on another player's permanent - wanting the same for
+ * a targeted spell). Needs `board` (not just the event) to resolve a
+ * targeted card back to its controller. Only defined for event types where
+ * an actor/target relationship actually exists - a land drop or a new turn
+ * beginning has nothing to highlight.
  */
-export function getHighlight(event: AnalyticsEvent): Highlight {
+export function getHighlight(event: AnalyticsEvent, board: BoardState): Highlight {
   switch (event.type) {
     case "attackers_declared": {
       const attacks = Array.isArray(event.attacks) ? (event.attacks as Attack[]) : [];
@@ -198,8 +239,18 @@ export function getHighlight(event: AnalyticsEvent): Highlight {
       // not necessarily controlled by whoever's attacking this turn) - just
       // flag the affected player.
       return { reactors: [asStr(event.player) ?? ""].filter(Boolean) };
-    case "spell_cast":
-      return { actor: asStr(event.player), reactors: [] };
+    case "spell_cast": {
+      const actor = asStr(event.player);
+      const targetIds = parseTargetCardIds(asStr(event.target));
+      const reactors = [
+        ...new Set(
+          targetIds
+            .map((id) => board.cards.get(id)?.controller)
+            .filter((p): p is string => !!p && p !== actor),
+        ),
+      ];
+      return { actor, reactors };
+    }
     default:
       return { reactors: [] };
   }

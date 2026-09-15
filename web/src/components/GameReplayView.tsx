@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AnalyticsEvent } from "../types";
 import { computeBoardStateAt, computeCheckpoints, derivePlayerNames, describeCheckpoint, getHighlight, type ReplayCard } from "../lib/gameReplay";
+import { fetchScryfallImageUrl } from "../lib/scryfallImage";
 import { shortName } from "./RunList";
 
 // Direct user feedback on an earlier version of this default (550ms): "way
@@ -27,9 +28,8 @@ const DEFAULT_SPEED_INDEX = 1; // "1x" = 2200ms
  * to a checkpoint (computeBoardStateAt), so reconstruction accuracy is
  * unaffected - only what counts as one step changed.
  *
- * MVP scope, still: no hand contents, no card art (plain name/stat boxes) -
- * see the mtg-sim conversation this shipped from for the full reasoning and
- * what's intentionally deferred.
+ * No hand contents shown - see the mtg-sim conversation this shipped from
+ * for the full reasoning and what's intentionally deferred.
  */
 export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
   const checkpoints = useMemo(() => {
@@ -43,9 +43,8 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
   const playerNames = useMemo(() => derivePlayerNames(events), [events]);
   const rawIndex = checkpoints[Math.min(pos, checkpoints.length - 1)];
   const board = useMemo(() => computeBoardStateAt(events, rawIndex, playerNames), [events, rawIndex, playerNames]);
-  const currentEvent = events[rawIndex];
-  const currentAction = currentEvent ? describeCheckpoint(currentEvent, shortName) : "";
-  const highlight = useMemo(() => (currentEvent ? getHighlight(currentEvent) : { reactors: [] }), [currentEvent]);
+  const currentAction = events[rawIndex] ? describeCheckpoint(events, rawIndex, shortName) : "";
+  const highlight = useMemo(() => (events[rawIndex] ? getHighlight(events[rawIndex], board) : { reactors: [] }), [events, rawIndex, board]);
 
   useEffect(() => {
     if (!playing) return;
@@ -131,6 +130,19 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
 
       {currentAction && <div className="replay-current-action">{currentAction}</div>}
 
+      {/* Above the board per direct feedback ("I almost feel like the stack
+          should be above, so it's easy to see what's going on") - what's
+          about to resolve is at least as important as the board itself. */}
+      <div className="replay-stack">
+        <h4>Stack</h4>
+        {board.stack.length === 0 && <span className="muted">(empty)</span>}
+        {[...board.stack].reverse().map((item, i) => (
+          <div key={`${item.cardId}-${i}`} className="replay-stack-item">
+            {item.card} <span className="muted">({shortName(item.player)})</span>
+          </div>
+        ))}
+      </div>
+
       <div className="replay-board">
         {playerNames.map((player) => {
           const cards = battlefieldByPlayer.get(player) ?? [];
@@ -146,31 +158,23 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
                 <strong>{shortName(player)}</strong>
                 <span className="replay-life">{board.life[player] ?? "?"} life</span>
               </div>
+              <div className="replay-section-label">Permanents</div>
               <div className="replay-battlefield replay-permanents">
                 {permanents.map((card) => (
                   <ReplayCardBox key={card.id} card={card} attacking={board.attacks.some((a) => a.cardId === card.id)} blocking={board.blocks.some((b) => b.cardId === card.id)} />
                 ))}
-                {permanents.length === 0 && <span className="muted">(no permanents)</span>}
+                {permanents.length === 0 && <span className="muted">(none)</span>}
               </div>
+              <div className="replay-section-label">Lands</div>
               <div className="replay-battlefield replay-lands">
                 {lands.map((card) => (
                   <ReplayCardBox key={card.id} card={card} attacking={false} blocking={false} />
                 ))}
-                {lands.length === 0 && <span className="muted">(no lands)</span>}
+                {lands.length === 0 && <span className="muted">(none)</span>}
               </div>
             </div>
           );
         })}
-      </div>
-
-      <div className="replay-stack">
-        <h4>Stack</h4>
-        {board.stack.length === 0 && <span className="muted">(empty)</span>}
-        {[...board.stack].reverse().map((item, i) => (
-          <div key={`${item.cardId}-${i}`} className="replay-stack-item">
-            {item.card} <span className="muted">({shortName(item.player)})</span>
-          </div>
-        ))}
       </div>
 
       {(board.attacks.length > 0 || board.blocks.length > 0) && (
@@ -197,14 +201,30 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
 }
 
 function ReplayCardBox({ card, attacking, blocking }: { card: ReplayCard; attacking: boolean; blocking: boolean }) {
+  const [imageUrl, setImageUrl] = useState<string | null | undefined>(undefined); // undefined = not yet fetched, null = fetched but no art found
+  const [hovered, setHovered] = useState(false);
   const counterText = Object.entries(card.counters)
     .filter(([, v]) => v !== 0)
     .map(([type, v]) => `${type} x${v}`)
     .join(", ");
+
+  useEffect(() => {
+    if (!hovered || imageUrl !== undefined) return;
+    let cancelled = false;
+    fetchScryfallImageUrl(card.name).then((url) => {
+      if (!cancelled) setImageUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hovered, imageUrl, card.name]);
+
   return (
     <div
       className={`replay-card${card.isLand ? " land" : ""}${card.tapped ? " tapped" : ""}${attacking ? " attacking" : ""}${blocking ? " blocking" : ""}`}
       title={card.name}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <div className="replay-card-name">{card.name}</div>
       {card.power !== undefined && (
@@ -213,6 +233,12 @@ function ReplayCardBox({ card, attacking, blocking }: { card: ReplayCard; attack
         </div>
       )}
       {counterText && <div className="replay-card-counters">{counterText}</div>}
+      {hovered && imageUrl && (
+        <div className="replay-card-preview">
+          <img src={imageUrl} alt={card.name} />
+        </div>
+      )}
+      {hovered && imageUrl === undefined && <div className="replay-card-preview replay-card-preview-loading">Loading art…</div>}
     </div>
   );
 }
