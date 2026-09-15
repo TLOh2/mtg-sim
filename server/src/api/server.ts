@@ -233,7 +233,8 @@ const server = createServer(async (req, res) => {
         requestedGames,
         completedGames,
         winsByPlayer,
-      }));
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     sendJson(res, 200, runs);
     return;
   }
