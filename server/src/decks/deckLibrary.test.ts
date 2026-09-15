@@ -48,6 +48,43 @@ test("saveDeck still saves unparseable text, just without a commander preview", 
   }
 });
 
+test("saveDeck reuses an existing entry with the exact same decklist text instead of duplicating it", () => {
+  const text = "1 Sol Ring (CMM) 382\n1 Command Tower (LTC) 301";
+  const first = saveDeck("First Paste", text);
+  try {
+    const second = saveDeck("First Paste", text);
+    assert.equal(second.id, first.id, "pasting identical text again should return the same entry, not a new one");
+    assert.equal(listDecks().filter((d) => d.decklistText.trim() === text).length, 1);
+  } finally {
+    rmSync(`${SAVED_DECKS_DIR}/${first.id}.json`, { force: true });
+  }
+});
+
+test("saveDeck upgrades a generic 'Player N' label when the same decklist is later saved with a real name", () => {
+  const text = "1 Sol Ring (CMM) 382\n1 Command Tower (LTC) 301\n1 more unique card for this test";
+  const first = saveDeck("Player 3", text);
+  try {
+    const second = saveDeck("Actually A Real Name", text);
+    assert.equal(second.id, first.id);
+    assert.equal(second.label, "Actually A Real Name");
+    assert.equal(getDeck(first.id)?.label, "Actually A Real Name");
+  } finally {
+    rmSync(`${SAVED_DECKS_DIR}/${first.id}.json`, { force: true });
+  }
+});
+
+test("saveDeck does NOT overwrite an existing real label with a new generic one", () => {
+  const text = "1 Sol Ring (CMM) 382\n1 Command Tower (LTC) 301\n1 another unique card for this test";
+  const first = saveDeck("Real Name First", text);
+  try {
+    const second = saveDeck("Player 2", text);
+    assert.equal(second.id, first.id);
+    assert.equal(second.label, "Real Name First");
+  } finally {
+    rmSync(`${SAVED_DECKS_DIR}/${first.id}.json`, { force: true });
+  }
+});
+
 test("a hand-written preset file missing commanderPreview gets one computed on read", () => {
   const id = "test-hand-written-preset";
   const filePath = path.join(SAVED_DECKS_DIR, `${id}.json`);

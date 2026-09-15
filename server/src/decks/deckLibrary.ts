@@ -61,7 +61,38 @@ export function getDeck(id: string): DeckLibraryEntry | null {
   return null;
 }
 
+/**
+ * Reuses an existing saved entry with the exact same decklist text (leading/trailing
+ * whitespace aside) instead of creating a duplicate - pasting "the same" deck across
+ * two different sessions used to leave two separate library entries behind. Only
+ * checks SAVED_DECKS_DIR (not presets - a paste matching a preset is still worth
+ * saving as its own entry, since presets aren't necessarily meant to be the same
+ * as what someone actually plays).
+ */
+function findExistingByText(decklistText: string): DeckLibraryEntry | null {
+  const normalized = decklistText.trim();
+  for (const entry of readDir(SAVED_DECKS_DIR)) {
+    if (entry.decklistText.trim() === normalized) return entry;
+  }
+  return null;
+}
+
+const GENERIC_LABEL = /^Player \d+$/;
+
 export function saveDeck(label: string, decklistText: string): DeckLibraryEntry {
+  const existing = findExistingByText(decklistText);
+  if (existing) {
+    // The earlier paste may only have had a generic "Player N" label (no commander
+    // name resolved yet, or nobody typed one in) - if this paste has a real one,
+    // upgrade the saved entry instead of leaving it stuck with the confusing name.
+    if (GENERIC_LABEL.test(existing.label) && !GENERIC_LABEL.test(label)) {
+      const upgraded = { ...existing, label };
+      writeFileSync(path.join(SAVED_DECKS_DIR, `${existing.id}.json`), JSON.stringify(upgraded, null, 2), "utf-8");
+      return upgraded;
+    }
+    return existing;
+  }
+
   const entry: DeckLibraryEntry = {
     id: randomUUID(),
     label,
