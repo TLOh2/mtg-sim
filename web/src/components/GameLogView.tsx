@@ -3,9 +3,10 @@ import { api } from "../api";
 import type { GameDetail, GameStats } from "../types";
 import { shortName } from "./RunList";
 import { GameStoryView, formatStoryAsText } from "./GameStoryView";
+import { GameReplayView } from "./GameReplayView";
 import { LineChart } from "./Charts";
 
-type Tab = "story" | "raw";
+type Tab = "story" | "raw" | "replay";
 
 export function GameLogView({
   runId,
@@ -96,9 +97,14 @@ export function GameLogView({
         <button type="button" className={tab === "raw" ? "active" : "secondary"} onClick={() => setTab("raw")}>
           Raw log
         </button>
+        <button type="button" className={tab === "replay" ? "active" : "secondary"} onClick={() => setTab("replay")}>
+          Replay
+        </button>
       </div>
 
       {tab === "story" && <GameStoryView events={game.analyticsEvents ?? []} />}
+
+      {tab === "replay" && <GameReplayView events={game.analyticsEvents ?? []} />}
 
       {tab === "raw" && (
         <div className="log-timeline">

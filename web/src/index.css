@@ -776,3 +776,120 @@ button.danger:hover {
     break-inside: avoid;
   }
 }
+
+/* Game replay view */
+
+.replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.replay-scrubber {
+  flex: 1;
+  min-width: 120px;
+}
+
+.replay-position {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.replay-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.replay-player {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.replay-player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.replay-life {
+  color: var(--muted);
+}
+
+.replay-life.active-turn {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.replay-battlefield {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 48px;
+}
+
+.replay-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  min-width: 72px;
+  max-width: 110px;
+  font-size: 0.72rem;
+  background: var(--bg);
+}
+
+.replay-card.tapped {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.replay-card.attacking {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.replay-card.blocking {
+  border-color: var(--muted);
+  border-width: 2px;
+}
+
+.replay-card-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.replay-card-pt,
+.replay-card-counters {
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.replay-stack {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.replay-stack h4 {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.replay-stack-item {
+  font-size: 0.85rem;
+  padding: 2px 0;
+}
+
+.replay-combat {
+  font-size: 0.85rem;
+}
