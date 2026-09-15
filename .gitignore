@@ -2,6 +2,16 @@
 # build artifacts are not committed)
 engine/.runtime-classpath.txt
 engine/forge/**/target/
+engine/runtime-libs/
+
+# Assembled downloadable Windows package (portable runtimes + built output -
+# see scripts/build-windows-package.sh) - a build artifact, not source.
+dist-package/
+
+# Cached portable Node/JRE downloads used to assemble dist-package/ (see
+# scripts/fetch-runtimes.sh) - large binaries, not source, fetched once and
+# reused across packaging runs rather than re-downloaded every time.
+vendor/
 
 # Node
 node_modules/

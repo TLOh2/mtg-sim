@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { buildCardTypesInvocation } from "../simulate/javaSim.js";
+
 const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
-const RUN_CARDTYPES_SH = path.join(REPO_ROOT, "engine", "run-cardtypes.sh");
 const CACHE_PATH = path.join(REPO_ROOT, "data", "card-types-cache.json");
 
 export type CardTypeResult = "land" | "nonland" | "?";
@@ -23,18 +24,14 @@ function saveCache(cache: Record<string, CardTypeResult>): void {
 }
 
 /**
- * Runs engine/run-cardtypes.sh (-> forge.view.Main cardtypes ->
- * CardTypeLookup.java) once with every given name piped to its stdin, and
- * parses its "name\tland|nonland|?" stdout back into a map.
+ * Runs Forge's headless `cardtypes` mode (-> CardTypeLookup.java) directly
+ * (no shell involved - see javaSim.ts) once with every given name piped to
+ * its stdin, and parses its "name\tland|nonland|?" stdout back into a map.
  */
 function runLookup(names: string[]): Promise<Record<string, CardTypeResult>> {
   return new Promise((resolve, reject) => {
-    if (!existsSync(RUN_CARDTYPES_SH)) {
-      reject(new Error("engine/run-cardtypes.sh not found"));
-      return;
-    }
-
-    const child = spawn("bash", [RUN_CARDTYPES_SH], { cwd: REPO_ROOT });
+    const invocation = buildCardTypesInvocation();
+    const child = spawn(invocation.javaExecutable, invocation.args, { cwd: invocation.cwd });
 
     let stdout = "";
     let stderr = "";

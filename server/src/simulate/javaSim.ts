@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,18 +40,26 @@ function stageDecks(runId: string, deckDckPaths: string[]): string[] {
   });
 }
 
+// Built from whatever jars are actually sitting in engine/runtime-libs/
+// (populated by engine/build.sh's `dependency:copy-dependencies` step) -
+// not engine/.runtime-classpath.txt, which just records wherever *this*
+// machine's local Maven repo (~/.m2) happened to resolve those jars to. A
+// downloadable package can't assume that path exists at all, let alone at
+// the same location, so the actual jar files have to travel with it.
 function runtimeClasspath(): string {
-  const cpFile = path.join(ENGINE_DIR, ".runtime-classpath.txt");
-  let buildCp: string;
+  const libsDir = path.join(ENGINE_DIR, "runtime-libs");
+  let jars: string[];
   try {
-    buildCp = readFileSync(cpFile, "utf-8").trim();
+    jars = readdirSync(libsDir)
+      .filter((f) => f.endsWith(".jar"))
+      .map((f) => path.join(libsDir, f));
   } catch {
-    throw new Error(`No runtime classpath found at ${cpFile} - run engine/build.sh first.`);
+    throw new Error(`No runtime jars found at ${libsDir} - run engine/build.sh first.`);
   }
   const classesDirs = ["forge-gui-desktop", "forge-gui", "forge-ai", "forge-game", "forge-core"].map((m) =>
     path.join(ENGINE_DIR, "forge", m, "target", "classes"),
   );
-  return [...classesDirs, buildCp].join(path.delimiter);
+  return [...classesDirs, ...jars].join(path.delimiter);
 }
 
 export interface JavaSimInvocation {
@@ -59,6 +67,15 @@ export interface JavaSimInvocation {
   javaExecutable: string;
   args: string[];
   cwd: string;
+}
+
+function baseJavaArgs(): string[] {
+  const heapMb = process.env.FORGE_MAX_HEAP_MB ?? "384"; // see engine/run-sim.sh's own comment on why this default is intentionally conservative
+  return ["-Djava.awt.headless=true", `-Xmx${heapMb}m`, "-cp", runtimeClasspath()];
+}
+
+function javaExecutable(): string {
+  return process.env.JAVA_EXECUTABLE ?? "java";
 }
 
 /**
@@ -69,20 +86,22 @@ export interface JavaSimInvocation {
  */
 export function buildJavaSimInvocation(runId: string, deckDckPaths: string[], extraSimArgs: string[]): JavaSimInvocation {
   const relativeDecks = stageDecks(runId, deckDckPaths);
-  const heapMb = process.env.FORGE_MAX_HEAP_MB ?? "384"; // see engine/run-sim.sh's own comment on why this default is intentionally conservative
   return {
-    javaExecutable: process.env.JAVA_EXECUTABLE ?? "java",
-    args: [
-      "-Djava.awt.headless=true",
-      `-Xmx${heapMb}m`,
-      "-cp",
-      runtimeClasspath(),
-      "forge.view.Main",
-      "sim",
-      "-d",
-      ...relativeDecks,
-      ...extraSimArgs,
-    ],
+    javaExecutable: javaExecutable(),
+    args: [...baseJavaArgs(), "forge.view.Main", "sim", "-d", ...relativeDecks, ...extraSimArgs],
+    cwd: FORGE_DESKTOP_DIR,
+  };
+}
+
+/**
+ * Same idea for Forge's headless `cardtypes` mode (-> CardTypeLookup.java) -
+ * used by lookupCardTypes.ts to resolve card names to land/nonland via
+ * Forge's own database. No deck staging needed for this mode.
+ */
+export function buildCardTypesInvocation(): JavaSimInvocation {
+  return {
+    javaExecutable: javaExecutable(),
+    args: [...baseJavaArgs(), "forge.view.Main", "cardtypes"],
     cwd: FORGE_DESKTOP_DIR,
   };
 }

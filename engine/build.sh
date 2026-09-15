@@ -29,4 +29,15 @@ mvn -q -pl forge-gui-desktop -am dependency:build-classpath \
     -Dmdep.outputFile="$SCRIPT_DIR/.runtime-classpath.txt" \
     -DincludeScope=runtime -Dcheckstyle.skip=true
 
-echo "Forge build complete. Runtime classpath written to engine/.runtime-classpath.txt"
+# Also copy the actual runtime-scope jars into a portable folder (not just
+# a classpath *file* pointing at wherever this machine's local Maven repo
+# happens to live - ~/.m2, which a downloadable package obviously can't
+# assume). server/src/simulate/javaSim.ts builds its classpath from
+# whatever jars are actually sitting in here, so this step is what makes
+# that portable rather than just reading .runtime-classpath.txt's
+# machine-specific absolute paths.
+mvn -q -pl forge-gui-desktop -am dependency:copy-dependencies \
+    -DincludeScope=runtime -Dcheckstyle.skip=true \
+    -DoutputDirectory="$SCRIPT_DIR/runtime-libs"
+
+echo "Forge build complete. Runtime classpath written to engine/.runtime-classpath.txt; jars copied to engine/runtime-libs/"
