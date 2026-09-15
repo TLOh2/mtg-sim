@@ -22,9 +22,27 @@ if [ ! -d "web/node_modules" ]; then
     (cd web && npm install)
 fi
 
+# Java/Maven aren't always on a plain shell's PATH even when installed (this
+# bit us repeatedly during development - see the dev-environment-path notes)
+# - added defensively here so this script works from a fresh shell with no
+# manual setup, not just one that happens to have them already.
+for extra in "/c/Program Files/Microsoft/jdk-17.0.20.101-hotspot/bin" "/c/tools/apache-maven-3.9.16/bin"; do
+    [ -d "$extra" ] && PATH="$extra:$PATH"
+done
+export PATH
+
 API_PORT="${API_PORT:-4000}"
 API_LOG="$(mktemp -t mtg-sim-api-XXXXXX.log)"
 WEB_LOG="$(mktemp -t mtg-sim-web-XXXXXX.log)"
+
+# Forge's own default JVM cap (-Xmx384m, see engine/run-sim.sh) is a
+# deliberately conservative default sized for a hypothetical low-memory
+# hosted deploy, not a real dev machine - too tight for a real 4-deck
+# Commander pod (confirmed via a real OutOfMemoryError crash during
+# development). Overridable per the existing FORGE_MAX_HEAP_MB env var, but
+# this script's whole point is "just works" for local dev, so it raises the
+# default here rather than leaving everyone to rediscover that the hard way.
+export FORGE_MAX_HEAP_MB="${FORGE_MAX_HEAP_MB:-3072}"
 
 # Both background servers get their output redirected to a log file rather
 # than inherited - if this script is ever run under a pipe, an inherited
