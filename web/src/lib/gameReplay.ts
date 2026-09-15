@@ -85,6 +85,86 @@ export function computeBoardStateAt(events: AnalyticsEvent[], index: number, pla
 }
 
 /**
+ * Which raw event indices are actually worth stopping on. A real game's
+ * event log is dominated by bookkeeping (every mana tap, every incidental
+ * zone change) between the moments a person actually cares about - user
+ * feedback on the first version, watching a real game: "tons of events...
+ * nothing happening through a lot of them" and combat text "so quick I
+ * couldn't even read it." The replay now scrubs/steps through this list
+ * instead of every raw event; computeBoardStateAt still replays every raw
+ * event up to a checkpoint's index, so board state stays fully accurate -
+ * this only changes what counts as one step.
+ */
+export function computeCheckpoints(events: AnalyticsEvent[]): number[] {
+  const checkpoints: number[] = [];
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    switch (e.type) {
+      case "turn_began":
+      case "life_change":
+      case "game_outcome":
+      case "mulligan":
+        checkpoints.push(i);
+        break;
+      case "spell_cast":
+        if (e.action === "cast") checkpoints.push(i);
+        break;
+      case "attackers_declared":
+        if (Array.isArray(e.attacks) && e.attacks.length > 0) checkpoints.push(i);
+        break;
+      case "blockers_declared":
+        if (Array.isArray(e.blocks) && e.blocks.length > 0) checkpoints.push(i);
+        break;
+      case "zone_change":
+        // A permanent leaving the battlefield (dying, being exiled) is a
+        // real visual moment; the far more common hand/library churn
+        // (drawing a card, playing a land) isn't worth its own stop.
+        if (e.from === "Battlefield" && (e.to === "Graveyard" || e.to === "Exile")) checkpoints.push(i);
+        break;
+      default:
+        break;
+    }
+  }
+  return checkpoints;
+}
+
+/** A short, human-readable line for what happened at one checkpoint event - shown as the replay's "current action" so a fast-moving moment (an attack, a cast) is actually readable instead of flashing by as raw event text. `shortName` controls how player names are displayed (the caller already has a convention for this - see RunList.tsx). */
+export function describeCheckpoint(event: AnalyticsEvent, shortName: (name: string) => string): string {
+  const player = () => shortName(asStr(event.player) ?? "?");
+  switch (event.type) {
+    case "turn_began":
+      return `${player()}'s turn begins`;
+    case "life_change": {
+      const from = asNum(event.oldLife);
+      const to = asNum(event.newLife);
+      const source = asStr(event.source);
+      const delta = from !== undefined && to !== undefined ? `${from} → ${to}` : "";
+      return `${player()}: ${delta}${source ? ` (${source})` : ""}`;
+    }
+    case "game_outcome": {
+      const winner = asStr(event.winningPlayer);
+      return winner ? `${shortName(winner)} wins the game` : "Game ends in a draw";
+    }
+    case "mulligan":
+      return `${player()} mulligans to ${asNum(event.handSizeAfter) ?? "?"}`;
+    case "spell_cast":
+      return `${player()} casts ${asStr(event.card) ?? "?"}`;
+    case "attackers_declared": {
+      const attacks = Array.isArray(event.attacks) ? (event.attacks as Attack[]) : [];
+      return `${player()} attacks: ${attacks.map((a) => `${a.card} → ${shortName(a.defender)}`).join(", ")}`;
+    }
+    case "blockers_declared": {
+      const blocks = Array.isArray(event.blocks) ? (event.blocks as Block[]) : [];
+      return `${player()} blocks: ${blocks.map((b) => `${b.card} blocks ${b.blocking}`).join(", ")}`;
+    }
+    case "zone_change":
+      return `${asStr(event.card) ?? "A permanent"} goes to ${asStr(event.to)}`;
+    default:
+      return "";
+  }
+}
+
+/**
  * Every distinct player name mentioned anywhere in the log - used when the
  * caller doesn't already know the roster. Deliberately does NOT read
  * "target": that field means a player on player_damaged, but a bracketed

@@ -1,34 +1,50 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AnalyticsEvent } from "../types";
-import { computeBoardStateAt, derivePlayerNames, type ReplayCard } from "../lib/gameReplay";
+import { computeBoardStateAt, computeCheckpoints, derivePlayerNames, describeCheckpoint, type ReplayCard } from "../lib/gameReplay";
 import { shortName } from "./RunList";
 
-const PLAY_INTERVAL_MS = 350;
+const PLAY_INTERVAL_MS = 550;
 
 /**
- * Replays one game's board state from its analyticsEvents, event by event -
- * not a live/real-time view (games here finish in seconds, nothing to watch
- * live) but a scrubbable, paced reconstruction, the same idea as a chess PGN
- * viewer. MVP scope, deliberately: battlefield + life + stack only, no hand
- * contents, no card art (plain name/stat boxes) - see the mtg-sim
- * conversation this shipped from for the full reasoning.
+ * Replays one game's board state from its analyticsEvents - not a live/
+ * real-time view (games here finish in seconds, nothing to watch live) but a
+ * scrubbable, paced reconstruction, the same idea as a chess PGN viewer.
+ *
+ * Steps through *checkpoints* (see computeCheckpoints), not every raw event:
+ * a real game's log is dominated by bookkeeping between the moments a person
+ * actually cares about - real feedback watching the first version was "tons
+ * of events, nothing happening through a lot of them" and combat text
+ * "so quick I couldn't read it." Board state itself still replays every raw
+ * event up to a checkpoint (computeBoardStateAt), so nothing about the
+ * reconstruction's accuracy changed, only what counts as one step.
+ *
+ * MVP scope, still: battlefield + life + stack only, no hand contents, no
+ * card art (plain name/stat boxes), lands rendered the same as any other
+ * permanent - see the mtg-sim conversation this shipped from for the full
+ * reasoning and what's intentionally deferred.
  */
 export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
-  const [index, setIndex] = useState(0);
+  const checkpoints = useMemo(() => {
+    const cps = computeCheckpoints(events);
+    return cps.length > 0 ? cps : [0]; // guard: a game with literally no meaningful moments still gets one step
+  }, [events]);
+  const [pos, setPos] = useState(0);
   const [playing, setPlaying] = useState(false);
 
   const playerNames = useMemo(() => derivePlayerNames(events), [events]);
-  const board = useMemo(() => computeBoardStateAt(events, index, playerNames), [events, index, playerNames]);
+  const rawIndex = checkpoints[Math.min(pos, checkpoints.length - 1)];
+  const board = useMemo(() => computeBoardStateAt(events, rawIndex, playerNames), [events, rawIndex, playerNames]);
+  const currentAction = events[rawIndex] ? describeCheckpoint(events[rawIndex], shortName) : "";
 
   useEffect(() => {
     if (!playing) return;
-    if (index >= events.length - 1) {
+    if (pos >= checkpoints.length - 1) {
       setPlaying(false);
       return;
     }
-    const timer = setTimeout(() => setIndex((i) => Math.min(i + 1, events.length - 1)), PLAY_INTERVAL_MS);
+    const timer = setTimeout(() => setPos((p) => Math.min(p + 1, checkpoints.length - 1)), PLAY_INTERVAL_MS);
     return () => clearTimeout(timer);
-  }, [playing, index, events.length]);
+  }, [playing, pos, checkpoints.length]);
 
   if (events.length === 0) {
     return <p className="muted">No board-state events captured for this game (older run, predates the replay feature).</p>;
@@ -46,7 +62,7 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
   return (
     <div className="replay-view">
       <div className="replay-controls">
-        <button type="button" className="secondary" onClick={() => setIndex(0)} disabled={index === 0}>
+        <button type="button" className="secondary" onClick={() => setPos(0)} disabled={pos === 0}>
           &laquo;
         </button>
         <button
@@ -54,9 +70,9 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
           className="secondary"
           onClick={() => {
             setPlaying(false);
-            setIndex((i) => Math.max(0, i - 1));
+            setPos((p) => Math.max(0, p - 1));
           }}
-          disabled={index === 0}
+          disabled={pos === 0}
         >
           &lsaquo;
         </button>
@@ -68,36 +84,36 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
           className="secondary"
           onClick={() => {
             setPlaying(false);
-            setIndex((i) => Math.min(events.length - 1, i + 1));
+            setPos((p) => Math.min(checkpoints.length - 1, p + 1));
           }}
-          disabled={index >= events.length - 1}
+          disabled={pos >= checkpoints.length - 1}
         >
           &rsaquo;
         </button>
         <input
           type="range"
           min={0}
-          max={events.length - 1}
-          value={index}
+          max={checkpoints.length - 1}
+          value={pos}
           onChange={(e) => {
             setPlaying(false);
-            setIndex(Number(e.target.value));
+            setPos(Number(e.target.value));
           }}
           className="replay-scrubber"
         />
         <span className="muted replay-position">
-          Turn {board.turn || 1} &middot; event {index + 1}/{events.length}
+          Turn {board.turn || 1} &middot; moment {pos + 1}/{checkpoints.length}
         </span>
       </div>
 
+      {currentAction && <div className="replay-current-action">{currentAction}</div>}
+
       <div className="replay-board">
         {playerNames.map((player) => (
-          <div key={player} className="replay-player">
+          <div key={player} className={board.activePlayer === player ? "replay-player active-turn" : "replay-player"}>
             <div className="replay-player-header">
               <strong>{shortName(player)}</strong>
-              <span className={board.activePlayer === player ? "replay-life active-turn" : "replay-life"}>
-                {board.life[player] ?? "?"} life
-              </span>
+              <span className="replay-life">{board.life[player] ?? "?"} life</span>
             </div>
             <div className="replay-battlefield">
               {(battlefieldByPlayer.get(player) ?? []).map((card) => (

@@ -804,10 +804,26 @@ button.danger:hover {
   margin-bottom: 16px;
 }
 
+.replay-current-action {
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .replay-player {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px;
+}
+
+.replay-player.active-turn {
+  border-color: var(--accent);
+  border-width: 2px;
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .replay-player-header {
@@ -820,11 +836,6 @@ button.danger:hover {
 
 .replay-life {
   color: var(--muted);
-}
-
-.replay-life.active-turn {
-  color: var(--accent);
-  font-weight: 600;
 }
 
 .replay-battlefield {
