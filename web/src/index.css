@@ -787,6 +787,15 @@ button.danger:hover {
   flex-wrap: wrap;
 }
 
+.replay-speed {
+  font-size: 0.85rem;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg);
+}
+
 .replay-scrubber {
   flex: 1;
   min-width: 120px;
@@ -797,11 +806,22 @@ button.danger:hover {
   font-size: 0.85rem;
 }
 
+/* A real Commander table is 4 seats around a table, not a row - laid out
+   as a 2x2 quadrant here (per direct feedback) both to match that mental
+   model and because each panel is wider as a result, giving card names
+   more room before truncating. Collapses to one column on narrow
+   viewports, where a 2-column grid would just cramp everything. */
 .replay-board {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .replay-board {
+    grid-template-columns: 1fr;
+  }
 }
 
 .replay-current-action {
@@ -823,7 +843,28 @@ button.danger:hover {
 .replay-player.active-turn {
   border-color: var(--accent);
   border-width: 2px;
-  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Actor/reactor: which player a specific action is happening between (an
+   attacker vs. whoever's being attacked, a life change vs. who lost the
+   life) - distinct from active-turn (whose overall turn it is) since the
+   two often don't match (a block happens on the attacker's turn, but the
+   *defending* player is the one acting). Direct feedback: wanting a
+   visible "call and response" between an action and its target, not just
+   the board silently changing. transition softens it into a pulse rather
+   than an abrupt snap each time the highlighted player changes. */
+.replay-player {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.replay-player.actor {
+  border-color: #f5a623;
+  box-shadow: 0 0 0 2px #f5a623;
+}
+
+.replay-player.reactor {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px #ef4444;
 }
 
 .replay-player-header {
@@ -842,7 +883,16 @@ button.danger:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  min-height: 48px;
+  min-height: 32px;
+}
+
+.replay-permanents {
+  margin-bottom: 8px;
+}
+
+.replay-lands {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
 }
 
 .replay-card {
@@ -853,6 +903,13 @@ button.danger:hover {
   max-width: 110px;
   font-size: 0.72rem;
   background: var(--bg);
+}
+
+/* Lands get a distinct, muted tint so a glance separates "mana base" from
+   "board threats" - direct feedback: the two read identically before,
+   which didn't match how a player actually thinks about a battlefield. */
+.replay-card.land {
+  background: color-mix(in srgb, var(--muted) 15%, var(--bg));
 }
 
 .replay-card.tapped {

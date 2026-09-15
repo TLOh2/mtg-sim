@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AnalyticsEvent } from "../types";
-import { computeBoardStateAt, computeCheckpoints, derivePlayerNames, describeCheckpoint, type ReplayCard } from "../lib/gameReplay";
+import { computeBoardStateAt, computeCheckpoints, derivePlayerNames, describeCheckpoint, getHighlight, type ReplayCard } from "../lib/gameReplay";
 import { shortName } from "./RunList";
 
-const PLAY_INTERVAL_MS = 550;
+// Direct user feedback on an earlier version of this default (550ms): "way
+// too fast... seven actions... I can't read through those as a human,"
+// wanting roughly a quarter of that pace. 2200ms is the "1x" speed option
+// below; faster options exist for someone who's already read a game once
+// and wants to skim it.
+const SPEED_OPTIONS = [
+  { label: "0.5x", intervalMs: 4400 },
+  { label: "1x", intervalMs: 2200 },
+  { label: "2x", intervalMs: 1100 },
+  { label: "4x", intervalMs: 550 },
+] as const;
+const DEFAULT_SPEED_INDEX = 1; // "1x" = 2200ms
 
 /**
  * Replays one game's board state from its analyticsEvents - not a live/
@@ -12,16 +23,13 @@ const PLAY_INTERVAL_MS = 550;
  *
  * Steps through *checkpoints* (see computeCheckpoints), not every raw event:
  * a real game's log is dominated by bookkeeping between the moments a person
- * actually cares about - real feedback watching the first version was "tons
- * of events, nothing happening through a lot of them" and combat text
- * "so quick I couldn't read it." Board state itself still replays every raw
- * event up to a checkpoint (computeBoardStateAt), so nothing about the
- * reconstruction's accuracy changed, only what counts as one step.
+ * actually cares about. Board state itself still replays every raw event up
+ * to a checkpoint (computeBoardStateAt), so reconstruction accuracy is
+ * unaffected - only what counts as one step changed.
  *
- * MVP scope, still: battlefield + life + stack only, no hand contents, no
- * card art (plain name/stat boxes), lands rendered the same as any other
- * permanent - see the mtg-sim conversation this shipped from for the full
- * reasoning and what's intentionally deferred.
+ * MVP scope, still: no hand contents, no card art (plain name/stat boxes) -
+ * see the mtg-sim conversation this shipped from for the full reasoning and
+ * what's intentionally deferred.
  */
 export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
   const checkpoints = useMemo(() => {
@@ -30,11 +38,14 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
   }, [events]);
   const [pos, setPos] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [speedIndex, setSpeedIndex] = useState(DEFAULT_SPEED_INDEX);
 
   const playerNames = useMemo(() => derivePlayerNames(events), [events]);
   const rawIndex = checkpoints[Math.min(pos, checkpoints.length - 1)];
   const board = useMemo(() => computeBoardStateAt(events, rawIndex, playerNames), [events, rawIndex, playerNames]);
-  const currentAction = events[rawIndex] ? describeCheckpoint(events[rawIndex], shortName) : "";
+  const currentEvent = events[rawIndex];
+  const currentAction = currentEvent ? describeCheckpoint(currentEvent, shortName) : "";
+  const highlight = useMemo(() => (currentEvent ? getHighlight(currentEvent) : { reactors: [] }), [currentEvent]);
 
   useEffect(() => {
     if (!playing) return;
@@ -42,9 +53,9 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
       setPlaying(false);
       return;
     }
-    const timer = setTimeout(() => setPos((p) => Math.min(p + 1, checkpoints.length - 1)), PLAY_INTERVAL_MS);
+    const timer = setTimeout(() => setPos((p) => Math.min(p + 1, checkpoints.length - 1)), SPEED_OPTIONS[speedIndex].intervalMs);
     return () => clearTimeout(timer);
-  }, [playing, pos, checkpoints.length]);
+  }, [playing, pos, checkpoints.length, speedIndex]);
 
   if (events.length === 0) {
     return <p className="muted">No board-state events captured for this game (older run, predates the replay feature).</p>;
@@ -90,6 +101,18 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
         >
           &rsaquo;
         </button>
+        <select
+          className="replay-speed"
+          value={speedIndex}
+          onChange={(e) => setSpeedIndex(Number(e.target.value))}
+          title="Playback speed"
+        >
+          {SPEED_OPTIONS.map((opt, i) => (
+            <option key={opt.label} value={i}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
         <input
           type="range"
           min={0}
@@ -109,20 +132,35 @@ export function GameReplayView({ events }: { events: AnalyticsEvent[] }) {
       {currentAction && <div className="replay-current-action">{currentAction}</div>}
 
       <div className="replay-board">
-        {playerNames.map((player) => (
-          <div key={player} className={board.activePlayer === player ? "replay-player active-turn" : "replay-player"}>
-            <div className="replay-player-header">
-              <strong>{shortName(player)}</strong>
-              <span className="replay-life">{board.life[player] ?? "?"} life</span>
+        {playerNames.map((player) => {
+          const cards = battlefieldByPlayer.get(player) ?? [];
+          const lands = cards.filter((c) => c.isLand);
+          const permanents = cards.filter((c) => !c.isLand);
+          const classes = ["replay-player"];
+          if (board.activePlayer === player) classes.push("active-turn");
+          if (highlight.actor === player) classes.push("actor");
+          if (highlight.reactors.includes(player)) classes.push("reactor");
+          return (
+            <div key={player} className={classes.join(" ")}>
+              <div className="replay-player-header">
+                <strong>{shortName(player)}</strong>
+                <span className="replay-life">{board.life[player] ?? "?"} life</span>
+              </div>
+              <div className="replay-battlefield replay-permanents">
+                {permanents.map((card) => (
+                  <ReplayCardBox key={card.id} card={card} attacking={board.attacks.some((a) => a.cardId === card.id)} blocking={board.blocks.some((b) => b.cardId === card.id)} />
+                ))}
+                {permanents.length === 0 && <span className="muted">(no permanents)</span>}
+              </div>
+              <div className="replay-battlefield replay-lands">
+                {lands.map((card) => (
+                  <ReplayCardBox key={card.id} card={card} attacking={false} blocking={false} />
+                ))}
+                {lands.length === 0 && <span className="muted">(no lands)</span>}
+              </div>
             </div>
-            <div className="replay-battlefield">
-              {(battlefieldByPlayer.get(player) ?? []).map((card) => (
-                <ReplayCardBox key={card.id} card={card} attacking={board.attacks.some((a) => a.cardId === card.id)} blocking={board.blocks.some((b) => b.cardId === card.id)} />
-              ))}
-              {(battlefieldByPlayer.get(player) ?? []).length === 0 && <span className="muted">(empty battlefield)</span>}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="replay-stack">
@@ -165,7 +203,7 @@ function ReplayCardBox({ card, attacking, blocking }: { card: ReplayCard; attack
     .join(", ");
   return (
     <div
-      className={`replay-card${card.tapped ? " tapped" : ""}${attacking ? " attacking" : ""}${blocking ? " blocking" : ""}`}
+      className={`replay-card${card.isLand ? " land" : ""}${card.tapped ? " tapped" : ""}${attacking ? " attacking" : ""}${blocking ? " blocking" : ""}`}
       title={card.name}
     >
       <div className="replay-card-name">{card.name}</div>

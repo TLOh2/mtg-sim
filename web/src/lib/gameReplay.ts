@@ -17,7 +17,14 @@ export interface ReplayCard {
   tapped: boolean;
   power?: number;
   toughness?: number;
+  isLand: boolean;
   counters: Record<string, number>;
+}
+
+/** Which player(s) a checkpoint's action is happening between - lets the board flash the acting player one color and whoever it's happening *to* another, so cause and effect actually read as connected. Undefined fields mean "nothing to highlight for this event type" (e.g. a land drop). */
+export interface Highlight {
+  actor?: string;
+  reactors: string[];
 }
 
 export interface Attack {
@@ -165,6 +172,40 @@ export function describeCheckpoint(event: AnalyticsEvent, shortName: (name: stri
 }
 
 /**
+ * Who's acting and who it's happening to for one checkpoint - e.g. an
+ * attack highlights the attacking player as `actor` and whoever's being
+ * attacked as `reactors`, so an action and its target read as connected
+ * instead of the board just changing with no visual link between them
+ * (direct user feedback: wanting to see "call and response" between an
+ * attacker and the player taking the hit). Only defined for event types
+ * where an actor/target relationship actually exists - a land drop or a
+ * new turn beginning has nothing to highlight.
+ */
+export function getHighlight(event: AnalyticsEvent): Highlight {
+  switch (event.type) {
+    case "attackers_declared": {
+      const attacks = Array.isArray(event.attacks) ? (event.attacks as Attack[]) : [];
+      const reactors = [...new Set(attacks.map((a) => a.defender))];
+      return { actor: asStr(event.player), reactors };
+    }
+    case "blockers_declared":
+      // The defending player is the one acting here (choosing to block);
+      // the attacker they're blocking was already highlighted as the actor
+      // on the attack step itself, one checkpoint earlier.
+      return { actor: asStr(event.player), reactors: [] };
+    case "life_change":
+      // No reliable actor for a life change (the "source" is a card name,
+      // not necessarily controlled by whoever's attacking this turn) - just
+      // flag the affected player.
+      return { reactors: [asStr(event.player) ?? ""].filter(Boolean) };
+    case "spell_cast":
+      return { actor: asStr(event.player), reactors: [] };
+    default:
+      return { reactors: [] };
+  }
+}
+
+/**
  * Every distinct player name mentioned anywhere in the log - used when the
  * caller doesn't already know the roster. Deliberately does NOT read
  * "target": that field means a player on player_damaged, but a bracketed
@@ -226,6 +267,7 @@ function applyEvent(board: BoardState, event: AnalyticsEvent): void {
         tapped: to === "Battlefield" ? false : false,
         power: asNum(event.power) ?? existing?.power,
         toughness: asNum(event.toughness) ?? existing?.toughness,
+        isLand: event.isLand === true,
         // Counters reset on a genuine zone change (a permanent that returns
         // to the battlefield is a new object under the rules, even though
         // this engine reuses the same tracking id) - stale +1/+1 counters
