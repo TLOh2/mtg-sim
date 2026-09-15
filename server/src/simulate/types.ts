@@ -13,6 +13,10 @@ export interface BatchRunOptions {
   clockSeconds: number;
   /** Called as each individual game finishes (not just once, at the very end) - see forgeRunner.ts's incremental stdout scan. Lets the caller persist real progress instead of the whole run reading 0/N until the entire batch completes. */
   onGameComplete?: (completedCount: number) => void;
+  /** Per-player AI profile (Default/Cautious/Reckless/Experimental), same order as the deck paths - see SimulateMatch.java's `-a` flag. Omit an entry (or the whole array) to use Forge's own default for that seat. */
+  aiProfiles?: string[];
+  /** Per-player AI look-ahead simulation mode ("off"/"hybrid"/"full") - see SimulateMatch.java's `-sim` flag and forge-ai/simulation/GameSimulator.java. Omit for "off" (Forge's own default). */
+  simModes?: string[];
 }
 
 export interface GameResult {

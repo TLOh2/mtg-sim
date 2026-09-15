@@ -27,6 +27,9 @@ export interface RunAndAnalyzeOptions {
   deckUrls?: string[];
   /** The resolved { deckId } for each player, in seat order - persisted so "restart with same decks" doesn't need the original paste text again. */
   deckSelections?: DeckSelection[];
+  /** Per-player AI profile/simulation-mode overrides - see BatchRunOptions in simulate/types.ts. Omitted entirely for the common case (every seat on Forge's own defaults). */
+  aiProfiles?: string[];
+  simModes?: string[];
 }
 
 /**
@@ -65,6 +68,8 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
       games: opts.games,
       format: "Commander",
       clockSeconds: opts.clockSeconds,
+      aiProfiles: opts.aiProfiles,
+      simModes: opts.simModes,
       // Real progress instead of a static "0/N" until the whole batch
       // finishes - see forgeRunner.ts's incremental stdout scan. Only
       // completedGames changes here; the full per-game analysis (games

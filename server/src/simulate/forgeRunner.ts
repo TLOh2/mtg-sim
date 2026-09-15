@@ -65,6 +65,16 @@ export function runForgeBatch(deckDckPaths: string[], opts: BatchRunOptions): Pr
       "-c",
       String(opts.clockSeconds),
     ];
+    // Both flags are positional (one value per deck, same order) - see
+    // SimulateMatch.java's argument parsing. Only appended when actually
+    // requested, so a run with neither behaves exactly as before (every
+    // seat on Forge's own "Default" profile, simulation off).
+    if (opts.aiProfiles?.length) {
+      args.push("-a", ...opts.aiProfiles);
+    }
+    if (opts.simModes?.length) {
+      args.push("-sim", ...opts.simModes);
+    }
 
     const analyticsDir = mkdtempSync(path.join(os.tmpdir(), `mtg-sim-analytics-${opts.runId}-`));
     const child = spawn("bash", args, {
