@@ -34,7 +34,7 @@ function dosDateTime(date: Date): { time: number; date: number } {
 
 interface ZipEntry {
   name: string;
-  data: Uint8Array;
+  data: Uint8Array<ArrayBuffer>;
 }
 
 /** Builds a valid STORE-mode .zip file from a list of {name, text} entries and returns it as a downloadable Blob. */
@@ -43,8 +43,8 @@ export function createZip(files: { name: string; text: string }[]): Blob {
   const entries: ZipEntry[] = files.map((f) => ({ name: f.name, data: encoder.encode(f.text) }));
   const { time, date } = dosDateTime(new Date());
 
-  const localParts: Uint8Array[] = [];
-  const centralParts: Uint8Array[] = [];
+  const localParts: Uint8Array<ArrayBuffer>[] = [];
+  const centralParts: Uint8Array<ArrayBuffer>[] = [];
   let offset = 0;
 
   for (const entry of entries) {
