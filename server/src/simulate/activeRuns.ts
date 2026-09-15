@@ -26,14 +26,13 @@ export function cancelRun(runId: string): boolean {
   if (!child) return false;
   cancelledRunIds.add(runId);
 
-  // forgeRunner spawns "bash", which runs engine/run-sim.sh, which ends with
-  // `exec java ...`. On POSIX, exec replaces the process image in place (same
-  // PID), so child.kill() reaches the real Forge JVM directly. Windows has no
-  // such primitive: Git Bash's `exec` just blocks bash.exe on a separate
-  // java.exe child, so a plain kill() only terminates the (now-pointless)
-  // bash wrapper and silently orphans a still-running simulation. taskkill's
-  // /T (tree) reaches java.exe too - confirmed via manual testing that a bare
-  // child.kill() left Forge running for minutes after "cancel" returned.
+  // forgeRunner spawns java directly now (see javaSim.ts) - `child` is the
+  // real Forge JVM's own process, so in principle a plain child.kill() would
+  // reach it. Still routed through taskkill /T on Windows out of caution:
+  // this bit us before when an intermediate shell was in the chain (a plain
+  // kill() only killed the shell wrapper, silently orphaning Forge for
+  // minutes), and /T costs nothing extra now that there's no tree to speak
+  // of - it just also catches any child the JVM itself happens to spawn.
   if (process.platform === "win32" && child.pid) {
     exec(`taskkill /PID ${child.pid} /T /F`, () => {
       // Best-effort: a race where the process already exited on its own is

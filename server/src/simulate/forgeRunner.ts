@@ -1,16 +1,13 @@
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { mkdtempSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 import { parseGameResults } from "./parseGameResults.js";
 import { registerActiveRun } from "./activeRuns.js";
+import { buildJavaSimInvocation } from "./javaSim.js";
 import type { AnalyticsEvent } from "../parse/types.js";
 import type { BatchRunOptions, BatchRunResult } from "./types.js";
-
-const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
-const RUN_SIM_SH = path.join(REPO_ROOT, "engine", "run-sim.sh");
 
 /**
  * Reads back the NDJSON one game's run wrote to FORGE_ANALYTICS_DIR (see
@@ -43,42 +40,31 @@ const GAME_RESULT_LINE = /^Game Result: Game \d+ ended/gm;
  * Runs a batch of Forge Commander games for a pod of decks (spec.json
  * defaults: 4 decks, 20 games) and returns structured per-game results.
  *
- * Delegates the actual Forge invocation to engine/run-sim.sh (see that
- * script + engine/NOTES.md for why: Forge's `-d` flag only accepts deck
- * paths relative to its own deck-storage directory, which the script
- * handles by staging files into a run-scoped subdirectory). This function's
- * job is orchestration (spawn, capture stdout, surface a clear error if
- * Forge exits non-zero) and turning that raw stdout into GameResult[] via
- * parseGameResults - full event/turning-point parsing is Phase 3.
+ * Invokes Forge's headless `sim` mode directly (see javaSim.ts) - no shell
+ * involved, so this doesn't need bash on the machine it runs on (its usual
+ * source here is Git for Windows, which a downloadable package can't
+ * assume). This function's job is orchestration (spawn, capture stdout,
+ * surface a clear error if Forge exits non-zero) and turning that raw
+ * stdout into GameResult[] via parseGameResults.
  */
 export function runForgeBatch(deckDckPaths: string[], opts: BatchRunOptions): Promise<BatchRunResult> {
   return new Promise((resolve, reject) => {
-    const args = [
-      RUN_SIM_SH,
-      opts.runId,
-      ...deckDckPaths,
-      "--",
-      "-f",
-      opts.format,
-      "-n",
-      String(opts.games),
-      "-c",
-      String(opts.clockSeconds),
-    ];
+    const extraSimArgs = ["-f", opts.format, "-n", String(opts.games), "-c", String(opts.clockSeconds)];
     // Both flags are positional (one value per deck, same order) - see
     // SimulateMatch.java's argument parsing. Only appended when actually
     // requested, so a run with neither behaves exactly as before (every
     // seat on Forge's own "Default" profile, simulation off).
     if (opts.aiProfiles?.length) {
-      args.push("-a", ...opts.aiProfiles);
+      extraSimArgs.push("-a", ...opts.aiProfiles);
     }
     if (opts.simModes?.length) {
-      args.push("-sim", ...opts.simModes);
+      extraSimArgs.push("-sim", ...opts.simModes);
     }
 
     const analyticsDir = mkdtempSync(path.join(os.tmpdir(), `mtg-sim-analytics-${opts.runId}-`));
-    const child = spawn("bash", args, {
-      cwd: REPO_ROOT,
+    const invocation = buildJavaSimInvocation(opts.runId, deckDckPaths, extraSimArgs);
+    const child = spawn(invocation.javaExecutable, invocation.args, {
+      cwd: invocation.cwd,
       env: { ...process.env, FORGE_ANALYTICS_DIR: analyticsDir },
     });
     registerActiveRun(opts.runId, child);
