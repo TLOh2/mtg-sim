@@ -1,13 +1,70 @@
 # Commander Simulator Platform
 
-Import Commander decklists from Moxfield, batch-simulate pods of 4 through
-[Forge](https://github.com/card-forge/forge)'s headless engine, and browse
-aggregate results and individual game logs in a web dashboard.
+Import Commander decklists from Moxfield, Archidekt, or TappedOut, batch-simulate
+pods of 4 through [Forge](https://github.com/card-forge/forge)'s headless engine,
+and dig into the results in a web dashboard - win rates, mana consistency, fun
+accolades, a cross-run leaderboard, and a visual replay of any individual game.
 
 See `spec.json` for the full data model/decisions and `PROGRESS.md` for the
 build history and what's been validated against real data.
 
-## Quick start
+## Just want to play? Download and run it
+
+No coding, no installs - grab the latest package from the
+[Releases page](https://github.com/TLOh2/mtg-sim/releases), then:
+
+1. Extract the downloaded `.zip` anywhere.
+2. Open the extracted `CommanderSim` folder.
+3. Double-click **`Start.bat`**.
+
+A browser tab opens automatically once it's ready. That's the whole setup -
+the package bundles its own copy of Node.js and Java, so nothing else needs
+to be installed on your machine, and nothing it does touches anything outside
+that one folder.
+
+Windows may show a security prompt the first time, since it's an unrecognized
+script downloaded from the internet - click **More info → Run anyway**, and
+allow it through the firewall prompt if one appears (it only listens on your
+own machine; nothing here is exposed to the internet).
+
+The rest of this README is for building it from source instead (for
+development, or if you want to build your own package).
+
+## What you can do with it
+
+- **Batch-simulate a 4-player Commander pod** - pick saved decks or paste a
+  fresh export, set how many games and how long each gets before it's called
+  a draw, and let Forge play it out. A run shows live progress as each game
+  finishes, and you can cancel one mid-run.
+- **Tune the AI per seat** - each player can use Forge's Default AI or one of
+  three alternate profiles (Cautious/Reckless/Experimental) if you want to
+  see whether a deck plays differently under a more aggressive or more
+  sacrifice-willing AI.
+- **See real aggregate stats per run**: win rates, a deck diagnostics table
+  (missed land drops, mana efficiency, how fast each deck ramps to 5/7/10
+  mana - counting rocks and dorks, not just lands), curve efficiency, a rough
+  1-5 power-bracket estimate, and a full attacker-vs-defender threat matrix.
+- **Fun accolades** - Most Damage Dealt, Pyromaniac, Speedrunner, Iron Bank,
+  Most Consistent, Rocky Start, and more, computed from that run's own
+  numbers (skipped entirely when nothing in the run actually earns them).
+- **See what a deck actually does** - a per-deck "cards cast" breakdown and a
+  "never cast" list (dead cards/combo pieces the AI kept drawing but never
+  used), both resolved against Forge's own card database so lands are
+  correctly excluded rather than guessed from card names.
+- **A cross-run deck leaderboard** - every deck's win rate and bracket across
+  every run it's appeared in, with a dominance-over-time chart once a deck
+  has played 2+ runs.
+- **Dig into one game three ways**: a human-readable turn-by-turn **Story**
+  view, the **Raw log**, and a visual **Replay** - watch the actual board
+  state play out (battlefield, life totals, lands separated from other
+  permanents, tapped mana, counters, the stack), with an attacker/target
+  highlight so cause and effect are easy to follow, adjustable playback
+  speed, and real card art on hover (via Scryfall).
+- **Share results** - copy a single game's summary to your clipboard, export
+  a whole run's game logs as a `.zip`, or print a run to PDF.
+- **Light/dark/auto theme**, because it's 2026.
+
+## Quick start (building from source)
 
 ```bash
 git submodule update --init engine/forge   # vendored Forge, pinned commit
@@ -21,23 +78,19 @@ terminal to stop everything cleanly.
 
 Click **+ New run**. For each of the 4 players, either pick an already-saved
 deck from the dropdown, or choose **Paste new...** and paste that player's
-Moxfield export: open their deck on Moxfield, click **Export** → **Copy for
-Moxfield** (not "Copy for Arena"/"Copy for MTGO" - those drop cards those
-formats can't represent), and paste the result in. A deck you paste is saved
-automatically - next time it's just sitting in the dropdown, no re-pasting.
-See "A note on how deck import works" below for why it's a pasted decklist
-rather than just a URL. Submit; a full batch (20 games by default) can take
-a while, but the run appears immediately with a "running" status and the
-page polls until it's done, so it's safe to navigate away and come back
-later.
+decklist export - see "A note on how deck import works" below for the exact
+steps per site and why it's a pasted decklist rather than a URL. A deck you
+paste is saved automatically - next time it's just sitting in the dropdown,
+no re-pasting. Submit; a full batch (20 games by default) can take a while,
+but the run appears immediately with a "running" status and updates live, so
+it's safe to navigate away and come back later.
 
 ### Baking in decks you always want available
 
-Decks pasted through the dashboard are only saved for as long as the
-current deploy lives (see the storage caveat below) - fine for casual use,
-but if there are specific decks you want available *every* time, permanently,
-add them to the repo instead: drop a file in `server/presets/decks/`
-shaped like:
+Decks pasted through the dashboard only persist as long as `data/decks/`
+does on whatever machine is running it - fine for casual use, but if there
+are specific decks you want available *every* time, permanently, add them to
+the repo instead: drop a file in `server/presets/decks/` shaped like:
 
 ```json
 {
@@ -49,9 +102,10 @@ shaped like:
 ```
 
 (`commanderPreview` is optional - computed automatically if omitted.) These
-are committed to the repo, so they survive every redeploy for free, unlike
-anything pasted through the site itself. `server/presets/decks/eowyn-ayo-win.json`
-is a real example to copy the shape from.
+are committed to the repo, so they ship with every build - including the
+downloadable package - unlike anything pasted through the site itself.
+`server/presets/decks/eowyn-ayo-win.json` is a real example to copy the shape
+from.
 
 ### Running the two servers by hand
 
@@ -70,7 +124,7 @@ cd web && npm run dev           # dashboard on the printed localhost URL (proxie
 ## Running it: the CLI
 
 Useful for scripting, or for simulating pods built from local `.dck` files
-(e.g. Forge's own bundled Commander precons) rather than Moxfield URLs.
+(e.g. Forge's own bundled Commander precons) rather than pasted decklists.
 All commands run from `server/`:
 
 ```bash
@@ -85,12 +139,31 @@ npm run analyze:pod -- <run-id> deck1.dck deck2.dck deck3.dck deck4.dck [games=2
 `npm run sim:pod` is the same simulation step alone (no parsing/analysis), if
 you just want raw per-game results.
 
-## Deploying (e.g. Render), so you can use it from your phone
+## Building your own downloadable package
 
-The two options above run on your own machine only. To reach the dashboard
-from anywhere (cellular data, no computer left running), deploy the
-`Dockerfile` at the repo root to a host that can run a long-lived container -
-this was built and tested against [Render](https://render.com):
+The [Releases page](https://github.com/TLOh2/mtg-sim/releases) should have
+what you need, but if you want to build a fresh one yourself (after making
+changes, say):
+
+```bash
+bash engine/build.sh              # builds Forge (needed once, or after any Forge change)
+bash scripts/fetch-runtimes.sh    # downloads portable Node.js + Java into vendor/ (once, cached after)
+bash scripts/build-windows-package.sh
+```
+
+That assembles `dist-package/CommanderSim/` - a folder with everything
+bundled in (portable Node.js, portable Java, the built dashboard, compiled
+server, and only the Forge modules/resources actually needed to run a
+simulation). Zip that folder and it's ready to share. Windows-only for now;
+see `server/src/simulate/javaSim.ts` for the pieces that would need a macOS/
+Linux equivalent (different portable-runtime downloads, mainly).
+
+## Hosting it online instead
+
+If you'd rather have one shared URL than everyone running their own copy
+(trades "no compute cost for you" for "reachable from any device without a
+download"), the `Dockerfile` at the repo root deploys as a single long-lived
+container - built and tested against [Render](https://render.com):
 
 1. Push this repo to GitHub if it isn't already (Render deploys from a Git
    repo).
@@ -107,11 +180,27 @@ this was built and tested against [Render](https://render.com):
    it's up, Render gives you a public `https://<your-service>.onrender.com`
    URL - that's what you open on your phone.
 
+Known tradeoffs of this path (none of these apply to the downloadable
+package, which runs entirely on the person's own machine):
+
+- **Runs aren't durable across redeploys.** `data/runs/` lives on the
+  service's local disk, which most Render plans wipe on every deploy/restart.
+  Render's persistent disks (a paid add-on) would fix this if you want it.
+- **A run in progress needs the service to stay up** - some plans spin the
+  instance down if nothing pings it for a while, which would kill an
+  in-progress batch.
+- **Forge needs real memory** - confirmed 512MB (Render's Starter plan) isn't
+  enough; loading its ~34,000-card database crashed the whole service on a
+  real deploy. `engine/run-sim.sh` caps the JVM at an explicit `-Xmx384m`
+  (overridable via `FORGE_MAX_HEAP_MB`) so a too-small instance fails *one
+  run* cleanly instead of crashing the whole service - but a plan with more
+  RAM is the real fix if runs keep failing with an out-of-memory error.
+
 ### A note on how deck import works (and why)
 
-The dashboard asks you to paste each deck's **decklist text** (Moxfield's
-"Copy for Moxfield" export), not a URL - because nothing that automatically
-fetches a Moxfield deck from a deployed web app actually works:
+The dashboard asks you to paste each deck's **decklist text**, not a URL -
+because nothing that automatically fetches a deck from a deployed web app
+actually works reliably:
 
 - A server-side fetch (this deployment doing the fetching) got 403'd every
   time on Render, even with browser-like headers - consistent with
@@ -122,36 +211,22 @@ fetches a Moxfield deck from a deployed web app actually works:
   `Access-Control-Allow-Origin` header, so browsers refuse to let a
   different site's JavaScript read the response. This applies to every
   visitor equally, not just one browser or one deployment.
+- TappedOut specifically also sits behind a Cloudflare bot check that blocks
+  even an automated browser from loading the page at all.
 
-Pasting the plain-text export sidesteps both: nothing here makes a network
-request to Moxfield at all. It's a little more manual than pasting a URL,
-but it's the one approach that's actually proven to work, including through
-a real end-to-end Forge game with a real ~100-card deck (see
-`server/fixtures/moxfield-eowyn-deck.txt` / PROGRESS.md).
+Pasting the plain-text export sidesteps all of that: nothing here makes a
+network request to any of these sites. The paste format is auto-detected, so
+there's nothing to tell it which site it came from:
 
-What to know before relying on it:
-
-- **Runs aren't durable across redeploys.** `data/runs/` lives on the
-  service's local disk, which most Render plans wipe on every deploy/restart.
-  Fine for "start a run, check results later that day"; not fine for
-  "results from months ago." Render's persistent disks (a paid add-on) would
-  fix this if you want it - ask and I'll wire it in.
-- **A run in progress needs the service to stay up.** If nothing polls the
-  service for a while, some plans spin the instance down, which would kill
-  an in-progress batch. Your dashboard tab polling every 4s while a run is
-  "running" should count as activity and prevent that, but a plan that
-  doesn't auto-sleep is the safer bet if you plan to close the tab mid-run.
-- **Forge needs real memory - confirmed 512MB (Render's Starter plan) isn't
-  enough.** Loading its ~34,000-card database crashed the whole service on a
-  real deploy (confirmed via Render's own Metrics tab: memory usage spiked
-  to 100% of a 512MB limit right at the crash). `engine/run-sim.sh` caps the
-  JVM at an explicit `-Xmx384m` (overridable via `FORGE_MAX_HEAP_MB`) so a
-  too-small instance now fails *one run* cleanly instead of crashing the
-  whole service for everyone - but it doesn't manufacture memory that isn't
-  there. If runs keep failing with an out-of-memory error, the real fix is
-  more RAM: a bigger Render plan, or a different host entirely (our
-  `Dockerfile` should port to Fly.io, Railway, a plain VPS, etc. with little
-  to no change).
+- **Moxfield**: on the deck page, **Export** → **Copy for Moxfield** (not
+  "Copy for Arena"/"Copy for MTGO" - those drop cards those formats can't
+  represent).
+- **Archidekt**: on the deck page, **More** → **Export deck** → **Copy** -
+  the default "Text" export works as-is, no settings to change.
+- **TappedOut**: on the deck page, **Actions** → **Download / Export / Embed
+  Code**, pick **CSV** from the dropdown (TappedOut's plain "Text" export
+  doesn't mark which card is the commander, so CSV is the one that actually
+  works here).
 
 ## Self-checks
 
@@ -165,28 +240,40 @@ bash scripts/phase1-smoke-test.sh   # Moxfield fixture -> .dck -> real Forge gam
 bash scripts/phase2-smoke-test.sh   # 4-deck pod, multi-game batch, real results
 bash scripts/phase4-smoke-test.sh   # API + dashboard serve a real persisted run
 bash scripts/dashboard-start-run-smoke-test.sh  # POST /api/runs request/response plumbing
-(cd server && npm test)             # log parsing + turning-point detection (Phase 3), unit-tested
+(cd server && npm test)             # log parsing + turning-point detection, unit-tested
 ```
 
 `scripts/start-dashboard.sh` itself isn't a self-check with assertions (it's
 meant to be run and left running, not to exit) - it was manually verified to
 bring both servers up, serve the dashboard, and shut down cleanly (no
-orphaned processes or held ports) on Ctrl+C.
+orphaned processes or held ports) on Ctrl+C. `scripts/build-windows-package.sh`
+was verified by actually running the assembled package with the system PATH
+stripped of Node/Java/Git entirely and completing a real simulation through it.
 
 ## Project layout
 
-- `engine/` - vendored Forge (git submodule) + build/run wrapper scripts.
-- `server/` - Node/TypeScript pipeline: Moxfield import, `.dck` conversion,
-  Forge simulation runner, log parsing/turning-point detection, and the
-  dependency-free HTTP API the dashboard reads.
-- `web/` - React + Vite dashboard.
-- `data/runs/` - persisted run results (gitignored; regenerable output).
+- `engine/` - vendored Forge (git submodule) + the Node code that spawns it
+  directly (no shell involved - see `server/src/simulate/javaSim.ts`).
+- `server/` - Node/TypeScript pipeline: deck import (Moxfield/Archidekt/
+  TappedOut), `.dck` conversion, the Forge simulation runner, log parsing/
+  analysis (stats, awards, turning points), and the dependency-free HTTP API
+  the dashboard reads.
+- `web/` - React + Vite dashboard, including the game replay viewer
+  (`web/src/components/GameReplayView.tsx`).
+- `scripts/` - dev tooling (`start-dashboard.sh`) and packaging
+  (`fetch-runtimes.sh`, `build-windows-package.sh`).
+- `data/runs/`, `data/decks/` - persisted run results and pasted decks
+  (gitignored; regenerable/user-specific, not source).
 
 ## Known limitations
 
-- Archidekt import is deprioritized (Moxfield is the only source currently
-  wired up) - see `server/src/importers/archidekt.ts` and `PROGRESS.md`.
 - `big_card_draw` (one of the seed turning-point signals) can't be detected:
   Forge's log has no draw events at all - see `PROGRESS.md` Phase 3.
 - Storage is flat JSON files under `data/runs/`, not a database - fine for a
-  single local user, revisit if cross-run querying becomes a real need.
+  single user, revisit if cross-run querying becomes a real need.
+- The downloadable package is Windows-only for now (see "Building your own
+  downloadable package" above).
+- Combining an AI profile override with the (currently backend-only) AI
+  look-ahead simulation mode on the same seat is known to break mana payment -
+  see `server/src/simulate/javaSim.ts`'s `-sim` flag comments if you're
+  touching that code.
