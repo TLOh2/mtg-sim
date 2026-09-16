@@ -10,7 +10,7 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../..", import.meta.url
 
 // Baked-in decks: committed to the repo, so they survive every redeploy for
 // free, no persistent disk needed.
-const PRESET_DECKS_DIR = path.join(REPO_ROOT, "server", "presets", "decks");
+export const PRESET_DECKS_DIR = path.join(REPO_ROOT, "server", "presets", "decks");
 
 // Decks pasted through the dashboard (by you or a friend) get auto-saved
 // here so they don't need to be re-pasted next time. NOT committed to git -

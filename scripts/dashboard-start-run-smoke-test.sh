@@ -7,11 +7,24 @@
 # server-side and a browser-side fetch of Moxfield's API turned out to be
 # dead ends on a real deployment). Since there's no network fetch involved
 # anywhere in this path, this script can exercise the FULL success path
-# locally and offline, using the real baked-in "eowyn-ayo-win" preset deck
-# (server/presets/decks/) as all 4 players.
+# locally and offline, using a throwaway preset deck (written into
+# server/presets/decks/ for the duration of this script, then removed - that
+# directory ships empty, see README) as all 4 players.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PRESET_ID="smoke-test-deck"
+PRESET_FILE="$REPO_ROOT/server/presets/decks/$PRESET_ID.json"
+node -e '
+const fs = require("fs");
+const decklistText = fs.readFileSync(process.argv[1], "utf-8");
+fs.writeFileSync(process.argv[2], JSON.stringify({
+  id: "smoke-test-deck",
+  label: "Smoke Test Deck",
+  decklistText,
+  savedAt: "2025-01-01T00:00:00.000Z",
+}));
+' "$REPO_ROOT/server/fixtures/moxfield-eowyn-deck.txt" "$PRESET_FILE"
 
 if [ ! -f "$REPO_ROOT/engine/.runtime-classpath.txt" ]; then
     echo "Building Forge first (engine/build.sh)..."
@@ -36,14 +49,14 @@ cleanup() {
         [ -n "$id" ] && rm -f "$REPO_ROOT/data/runs/$id.json"
     done
     [ -n "${AUTOSAVED_DECK_ID:-}" ] && rm -f "$REPO_ROOT/data/decks/$AUTOSAVED_DECK_ID.json"
-    rm -f "$API_LOG" /tmp/bad-shape-resp.json /tmp/garbage-body.json /tmp/autosave-body.json
+    rm -f "$API_LOG" /tmp/bad-shape-resp.json /tmp/garbage-body.json /tmp/autosave-body.json "$PRESET_FILE"
 }
 trap cleanup EXIT
 sleep 1
 
 echo "-- GET /api/decks -> the baked-in preset deck should be listed --"
 DECKS=$(curl -sS --max-time 10 "http://localhost:$API_PORT/api/decks")
-echo "$DECKS" | grep -q "\"eowyn-ayo-win\"" || { echo "FAIL: baked-in preset deck not in /api/decks" >&2; echo "$DECKS" >&2; exit 1; }
+echo "$DECKS" | grep -q "\"smoke-test-deck\"" || { echo "FAIL: baked-in preset deck not in /api/decks" >&2; echo "$DECKS" >&2; exit 1; }
 echo "$DECKS" | grep -q "\"commanderPreview\":\"Éowyn, Shieldmaiden\"" || { echo "FAIL: no commander preview on the preset deck" >&2; exit 1; }
 echo "baked-in preset deck is listed with a commander preview, ok"
 
@@ -51,7 +64,7 @@ echo "-- POST /api/runs with a malformed body (only 3 decks) -> expect 400 --"
 BAD_SHAPE_STATUS=$(curl -sS --max-time 10 -o /tmp/bad-shape-resp.json -w "%{http_code}" \
     -X POST "http://localhost:$API_PORT/api/runs" \
     -H "Content-Type: application/json" \
-    -d '{"decks":[{"deckId":"eowyn-ayo-win"},{"deckId":"eowyn-ayo-win"},{"deckId":"eowyn-ayo-win"}]}')
+    -d '{"decks":[{"deckId":"smoke-test-deck"},{"deckId":"smoke-test-deck"},{"deckId":"smoke-test-deck"}]}')
 [ "$BAD_SHAPE_STATUS" = "400" ] || { echo "FAIL: expected 400, got $BAD_SHAPE_STATUS" >&2; cat /tmp/bad-shape-resp.json >&2; exit 1; }
 grep -q "error" /tmp/bad-shape-resp.json || { echo "FAIL: no error field in 400 response" >&2; exit 1; }
 echo "validation rejects a decks array of the wrong length, ok"
@@ -59,7 +72,7 @@ echo "validation rejects a decks array of the wrong length, ok"
 echo "-- POST /api/runs picking the baked-in preset deck (by id) as all 4 players (full success path) --"
 START_RESP=$(curl -sS --max-time 10 -X POST "http://localhost:$API_PORT/api/runs" \
     -H "Content-Type: application/json" \
-    -d '{"decks":[{"deckId":"eowyn-ayo-win"},{"deckId":"eowyn-ayo-win"},{"deckId":"eowyn-ayo-win"},{"deckId":"eowyn-ayo-win"}],"games":1,"clockSeconds":60}')
+    -d '{"decks":[{"deckId":"smoke-test-deck"},{"deckId":"smoke-test-deck"},{"deckId":"smoke-test-deck"},{"deckId":"smoke-test-deck"}],"games":1,"clockSeconds":60}')
 echo "$START_RESP" | grep -q "\"runId\"" || { echo "FAIL: no runId in start response: $START_RESP" >&2; exit 1; }
 GOOD_RUN_ID=$(node -pe 'JSON.parse(require("fs").readFileSync(0,"utf-8")).runId' <<<"$START_RESP")
 echo "started run $GOOD_RUN_ID"
@@ -91,9 +104,9 @@ const fs = require("fs");
 const decklistText = fs.readFileSync(process.argv[1], "utf-8");
 const decks = [
   { label: "Autosave Test Deck", decklistText },
-  { deckId: "eowyn-ayo-win" },
-  { deckId: "eowyn-ayo-win" },
-  { deckId: "eowyn-ayo-win" },
+  { deckId: "smoke-test-deck" },
+  { deckId: "smoke-test-deck" },
+  { deckId: "smoke-test-deck" },
 ];
 process.stdout.write(JSON.stringify({ decks, games: 1, clockSeconds: 60 }));
 ' "$REPO_ROOT/server/fixtures/moxfield-eowyn-deck.txt" >/tmp/autosave-body.json
@@ -144,7 +157,7 @@ echo "garbage decklists were correctly NOT saved to the library, ok"
 
 echo "-- POST /api/runs with an unknown deckId -> expect a real 'failed' status --"
 node -e '
-const decks = [{deckId:"no-such-deck"},{deckId:"eowyn-ayo-win"},{deckId:"eowyn-ayo-win"},{deckId:"eowyn-ayo-win"}];
+const decks = [{deckId:"no-such-deck"},{deckId:"smoke-test-deck"},{deckId:"smoke-test-deck"},{deckId:"smoke-test-deck"}];
 process.stdout.write(JSON.stringify({ decks, games: 1 }));
 ' >/tmp/unknown-deck-body.json
 UNKNOWN_RESP=$(curl -sS --max-time 10 -X POST "http://localhost:$API_PORT/api/runs" \

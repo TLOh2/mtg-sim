@@ -61,7 +61,7 @@ function stdDev(nums: number[]): number {
  * for older runs that predate that field - but that meant the *same* deck
  * split into two separate leaderboard rows the moment it appeared in one run
  * with a deckId and another without one (confirmed: real bug, not a
- * hypothetical - Pantlaza Dinosaurs showed up twice). deckId is only
+ * hypothetical - the same deck showed up twice). deckId is only
  * populated some of the time and two runs of literally the same deck can
  * easily land on either side of that split, so it isn't actually a reliable
  * join key in practice - the label is what's consistently present and is

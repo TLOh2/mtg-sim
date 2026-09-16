@@ -426,7 +426,7 @@ function DeckStatsSection({
         Magic, only control does) - so this is "who's actually doing the beating," not just who's taking it. The
         percentages below are each column's share of total offensive output - combat damage + non-combat damage +
         non-damage life loss combined - not just the two damage columns, so a deck that leans on life-loss effects
-        (Sméagol-style) doesn't read as more combat-focused than it actually is.
+        doesn't read as more combat-focused than it actually is.
       </p>
       <HorizontalBarChart data={totalDamageDealtData} valueFormatter={(v) => v.toFixed(1)} />
       <table className="deck-stats-table">

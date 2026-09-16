@@ -3,20 +3,44 @@ import assert from "node:assert/strict";
 import { rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { listDecks, getDeck, saveDeck, SAVED_DECKS_DIR } from "./deckLibrary.js";
+import { listDecks, getDeck, saveDeck, SAVED_DECKS_DIR, PRESET_DECKS_DIR } from "./deckLibrary.js";
 
-test("listDecks includes the baked-in preset deck", () => {
-  const decks = listDecks();
-  const eowyn = decks.find((d) => d.id === "eowyn-ayo-win");
-  assert.ok(eowyn, "expected the baked-in eowyn-ayo-win preset to be listed");
-  assert.equal(eowyn?.label, "Ayo, Win");
-  assert.equal(eowyn?.commanderPreview, "Éowyn, Shieldmaiden");
+/**
+ * server/presets/decks/ ships empty (no repo-committed example decks), so
+ * these tests write a throwaway preset file directly into that directory to
+ * exercise the "reads baked-in presets from disk" mechanism, rather than
+ * depending on a checked-in example deck.
+ */
+function withTempPreset<T>(id: string, label: string, decklistText: string, run: () => T): T {
+  const filePath = path.join(PRESET_DECKS_DIR, `${id}.json`);
+  writeFileSync(
+    filePath,
+    JSON.stringify({ id, label, decklistText, savedAt: "2025-01-01T00:00:00.000Z" }),
+    "utf-8",
+  );
+  try {
+    return run();
+  } finally {
+    rmSync(filePath, { force: true });
+  }
+}
+
+test("listDecks includes a baked-in preset deck", () => {
+  withTempPreset("temp-preset-test", "Temp Preset", "1 Sol Ring (CMM) 382\n1 Command Tower (LTC) 301", () => {
+    const decks = listDecks();
+    const preset = decks.find((d) => d.id === "temp-preset-test");
+    assert.ok(preset, "expected the baked-in preset to be listed");
+    assert.equal(preset?.label, "Temp Preset");
+    assert.equal(preset?.commanderPreview, "Sol Ring");
+  });
 });
 
 test("getDeck finds a baked-in preset by id", () => {
-  const deck = getDeck("eowyn-ayo-win");
-  assert.ok(deck);
-  assert.match(deck!.decklistText, /Éowyn, Shieldmaiden/);
+  withTempPreset("temp-preset-test", "Temp Preset", "1 Sol Ring (CMM) 382\n1 Command Tower (LTC) 301", () => {
+    const deck = getDeck("temp-preset-test");
+    assert.ok(deck);
+    assert.match(deck!.decklistText, /Sol Ring/);
+  });
 });
 
 test("getDeck returns null for an unknown id", () => {

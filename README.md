@@ -104,8 +104,8 @@ the repo instead: drop a file in `server/presets/decks/` shaped like:
 (`commanderPreview` is optional - computed automatically if omitted.) These
 are committed to the repo, so they ship with every build - including the
 downloadable package - unlike anything pasted through the site itself.
-`server/presets/decks/eowyn-ayo-win.json` is a real example to copy the shape
-from.
+`server/presets/decks/` ships empty by default - the JSON shape above is
+everything you need to add your own.
 
 ### Running the two servers by hand
 
