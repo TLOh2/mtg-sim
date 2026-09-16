@@ -1,5 +1,12 @@
 # Progress Log — Commander Simulator Platform
 
+> **This is a chronological build log covering the project's early phases,
+> kept as-is for history.** It stops well before most of the project's
+> current feature set (stats/awards, AI profile tuning, the game replay
+> viewer, the downloadable package) and its Archidekt-import status note
+> below is stale - Archidekt (and TappedOut) import both shipped later. See
+> the root `README.md` for what the project actually does today.
+
 ## ⚠️ Read this first: PRD.md / spec.json did not exist
 
 At session start, the repo (`TLOh2/mtg-sim`) had **zero commits and zero branches**,

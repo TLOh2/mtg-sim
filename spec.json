@@ -1,5 +1,6 @@
 {
   "$provenance": "This file did not exist in the repo at session start (empty repo, no commits/branches, verified against GitHub). Authored by Claude from the task description + research into Forge/Moxfield/Archidekt to unblock work — see PROGRESS.md. Treat as a strong first draft to review/correct, not a finalized decision record.",
+  "$note": "Original planning snapshot, kept as-is for history. Some of this (scope_boundary's 'no auth/hosting concerns', Archidekt as a maybe-later import) was later revisited and shipped - see the root README.md for what the project actually does and supports today.",
 
   "project": {
     "name": "Commander Simulator Platform",

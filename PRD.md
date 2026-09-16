@@ -1,5 +1,10 @@
 # Commander Simulator Platform — Product Requirements
 
+> **This is the original planning document, kept as-is for history.** Several
+> of its "non-goals" and phase boundaries (hosting/deployment, Archidekt
+> import) were later revisited and shipped - see the root `README.md` for
+> what the project actually does and supports today.
+
 > **Provenance note:** this document was not present in the repository at the
 > start of implementation (the repo had zero commits). It was authored by
 > Claude from the working task description plus direct research into the Forge
