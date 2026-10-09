@@ -49,6 +49,7 @@ cp -r "$VENDOR_DIR/jre-win-x64" "$OUT_DIR/runtime/jre"
 #     without pasting anything in first. ---
 mkdir -p "$OUT_DIR/server"
 cp -r "$REPO_ROOT/server/dist" "$OUT_DIR/server/dist"
+find "$OUT_DIR/server/dist" -name "*.test.js" -delete
 cp -r "$REPO_ROOT/server/presets" "$OUT_DIR/server/presets"
 
 # --- Dashboard (static build the server itself serves - see
