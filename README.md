@@ -253,7 +253,14 @@ stripped of Node/Java/Git entirely and completing a real simulation through it.
 ## Project layout
 
 - `engine/` - vendored Forge (git submodule) + the Node code that spawns it
-  directly (no shell involved - see `server/src/simulate/javaSim.ts`).
+  directly (no shell involved - see `server/src/simulate/javaSim.ts`). The
+  submodule tracks the `mtg-sim` branch of
+  [TLOh2/forge](https://github.com/TLOh2/forge/tree/mtg-sim), a fork of
+  upstream Forge with a small set of patches this project depends on - the
+  structured analytics event logger behind every stat beyond win rate, per-turn
+  mana snapshots, replay board-state events, and the `cardtypes` lookup mode.
+  Stock upstream Forge will play games and report winners, but every other
+  stat will read zero.
 - `server/` - Node/TypeScript pipeline: deck import (Moxfield/Archidekt/
   TappedOut), `.dck` conversion, the Forge simulation runner, log parsing/
   analysis (stats, awards, turning points), and the dependency-free HTTP API
