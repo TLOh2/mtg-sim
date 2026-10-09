@@ -76,6 +76,15 @@ dependencies (takes a few minutes; every run after that is fast), then starts
 both servers and opens the dashboard in your browser. Press Ctrl+C in that
 terminal to stop everything cleanly.
 
+**On Windows**, run these from Git Bash, not PowerShell. Forge also has some
+very long file paths, so if the submodule step fails with `Filename too long`,
+enable long paths once and re-run it (or clone into a short location like
+`C:\Users\you\mtg-sim`):
+
+```bash
+git config --global core.longpaths true
+```
+
 Click **+ New run**. For each of the 4 players, either pick an already-saved
 deck from the dropdown, or choose **Paste new...** and paste that player's
 decklist export - see "A note on how deck import works" below for the exact
