@@ -17,6 +17,10 @@ const SPEED_OPTIONS = [
 ] as const;
 const DEFAULT_SPEED_INDEX = 1; // "1x" = 2200ms
 
+// Power/toughness is captured when a permanent enters play, so an Army that
+// entered as a 0/0 and grew by counters would otherwise still read 0/0.
+const ptBonus = (card: ReplayCard) => (card.counters["+1/+1"] ?? 0) - (card.counters["-1/-1"] ?? 0);
+
 /**
  * Replays one game's board state from its analyticsEvents - not a live/
  * real-time view (games here finish in seconds, nothing to watch live) but a
@@ -229,7 +233,7 @@ function ReplayCardBox({ card, attacking, blocking }: { card: ReplayCard; attack
       <div className="replay-card-name">{card.name}</div>
       {card.power !== undefined && (
         <div className="replay-card-pt">
-          {card.power}/{card.toughness}
+          {card.power + ptBonus(card)}/{(card.toughness ?? 0) + ptBonus(card)}
         </div>
       )}
       {counterText && <div className="replay-card-counters">{counterText}</div>}

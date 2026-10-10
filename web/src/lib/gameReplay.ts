@@ -347,7 +347,7 @@ function applyEvent(board: BoardState, event: AnalyticsEvent): void {
       // triggered/activated ability's "source" stays wherever it already
       // is (usually the battlefield), so showing it as a stack item too
       // would double up the same card in two places at once.
-      if (event.action !== "cast") break;
+      if (event.action !== "cast" && event.action !== "copied") break;
       const cardId = asNum(event.cardId);
       const card = asStr(event.card);
       const player = asStr(event.player);
