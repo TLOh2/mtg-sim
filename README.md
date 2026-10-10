@@ -35,7 +35,13 @@ development, or if you want to build your own package).
 - **Batch-simulate a 4-player Commander pod** - pick saved decks or paste a
   fresh export, set how many games and how long each gets before it's called
   a draw, and let Forge play it out. A run shows live progress as each game
-  finishes, and you can cancel one mid-run.
+  finishes, and you can cancel one mid-run. Games are split across several
+  Forge processes running side by side - about one per CPU core, capped by
+  free memory - so a 100-game run uses the whole machine instead of one core.
+  Set `FORGE_PARALLEL_BATCHES` to pick the number yourself (`1` turns it off).
+- **See who finished whom** - every game lists each knockout and the card(s)
+  that dealt the final blow (all of them when a whole army swings in at
+  once), including commander-damage, poison, and decking losses.
 - **Tune the AI per seat** - each player can use Forge's Default AI or one of
   three alternate profiles (Cautious/Reckless/Experimental) if you want to
   see whether a deck plays differently under a more aggressive or more
@@ -203,7 +209,9 @@ package, which runs entirely on the person's own machine):
   real deploy. `engine/run-sim.sh` caps the JVM at an explicit `-Xmx384m`
   (overridable via `FORGE_MAX_HEAP_MB`) so a too-small instance fails *one
   run* cleanly instead of crashing the whole service - but a plan with more
-  RAM is the real fix if runs keep failing with an out-of-memory error.
+  RAM is the real fix if runs keep failing with an out-of-memory error. Each
+  parallel batch gets its own heap, so a small instance automatically runs
+  fewer batches at once.
 
 ### A note on how deck import works (and why)
 

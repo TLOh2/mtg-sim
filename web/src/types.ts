@@ -17,12 +17,29 @@ export interface RunListEntry {
   aiProfiles?: string[];
 }
 
+export interface FinisherCard {
+  card: string;
+  amount: number | null;
+  count: number;
+}
+
+export interface Elimination {
+  player: string;
+  turn: number | null;
+  cause: "damage" | "life loss" | "commander damage" | "poison" | "decked" | "other";
+  by: string | null;
+  cards: FinisherCard[];
+  detail?: string;
+}
+
 export interface GameSummary {
   gameIndex: number;
   winnerName: string | null;
   isDraw: boolean;
   durationMs: number;
   turningPointCount: number;
+  /** Absent from servers that predate finisher tracking. */
+  eliminations?: Elimination[];
 }
 
 export interface RunDetail extends RunListEntry {
@@ -197,6 +214,8 @@ export interface DeckRunHistoryPoint {
 export interface GameDurationStats {
   sampleSize: number;
   avgFractionOfClock: number | null;
+  /** Absent from servers that predate parallel batches. */
+  parallelism?: { maxBatches: number; clockFactor: number };
 }
 
 export interface DeckLeaderboardEntry {

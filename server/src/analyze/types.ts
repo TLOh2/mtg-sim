@@ -36,6 +36,10 @@ export interface RunSummary {
   requestedGames: number;
   /** The clock (see engine/run-sim.sh's -c) each game in this run was given, in seconds - persisted so "restart with same settings" can reuse it exactly. Undefined for older runs. */
   clockSeconds?: number;
+  /** The limit Forge actually enforced per game - clockSeconds stretched to offset the slowdown of running batches in parallel (see forgeRunner's effectiveClockSeconds). Undefined for runs that predate parallel batches, which enforced clockSeconds as-is. */
+  effectiveClockSeconds?: number;
+  /** How many Forge processes this run's games were split across. Undefined for older, single-process runs. */
+  parallelBatches?: number;
   /** Per-seat Forge AI profile, same order as playerNames - see SimulateMatch.java's -a flag. Undefined (or all "Default") for the common case: every seat on Forge's own stock AI. */
   aiProfiles?: string[];
   completedGames: number;

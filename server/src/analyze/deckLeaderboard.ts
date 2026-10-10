@@ -124,8 +124,10 @@ export function computeDeckLeaderboard(runs: RunSummary[]): DeckLeaderboardEntry
 
 export interface GameDurationStats {
   sampleSize: number;
-  /** avg(actual game duration / that run's clock setting) across every completed game with a known clock - a fraction rather than a raw duration, so it stays meaningful across runs that used different clockSeconds. Multiply by a prospective run's own games*clockSeconds to estimate how long it'll actually take. */
+  /** avg(actual game duration / the clock Forge enforced) across every completed game with a known clock - a fraction rather than a raw duration, so it stays meaningful across runs that used different clocks. Multiply by a prospective run's own games*clock to estimate how long it'll actually take. */
   avgFractionOfClock: number | null;
+  /** What a new run would get - lets the estimate divide by the batches running side by side. */
+  parallelism: { maxBatches: number; clockFactor: number };
 }
 
 /**
@@ -134,16 +136,23 @@ export interface GameDurationStats {
  * NewRunForm.tsx). games*clockSeconds alone is a worst-case ceiling (every
  * game timing out); this is closer to what typically happens.
  */
-export function computeGameDurationStats(runs: RunSummary[]): GameDurationStats {
+export function computeGameDurationStats(
+  runs: RunSummary[],
+  parallelism: GameDurationStats["parallelism"],
+): GameDurationStats {
   const fractions: number[] = [];
   for (const run of runs) {
-    if (run.status !== "complete" || !run.clockSeconds) continue;
+    // A parallel run's games are slower, but so is the clock they got - divide
+    // by what was enforced, or parallel runs would inflate every estimate.
+    const clock = run.effectiveClockSeconds ?? run.clockSeconds;
+    if (run.status !== "complete" || !clock) continue;
     for (const g of run.games) {
-      fractions.push(g.durationMs / 1000 / run.clockSeconds);
+      fractions.push(g.durationMs / 1000 / clock);
     }
   }
   return {
     sampleSize: fractions.length,
     avgFractionOfClock: fractions.length > 0 ? avg(fractions) : null,
+    parallelism,
   };
 }

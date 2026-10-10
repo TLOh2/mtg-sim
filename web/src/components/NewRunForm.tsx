@@ -181,9 +181,13 @@ export function NewRunForm({ onStarted, onCancel }: { onStarted: (runId: string)
 
       <p className="stats-caveat">
         {(() => {
-          const worstCaseSeconds = games * clockSeconds;
+          // Games run in parallel batches, each with a clock stretched to offset
+          // the slowdown of sharing the machine - see the server's forgeRunner.
+          const batches = Math.max(1, Math.min(games, durationStats?.parallelism?.maxBatches ?? 1));
+          const clock = batches > 1 ? clockSeconds * (durationStats?.parallelism?.clockFactor ?? 1) : clockSeconds;
+          const worstCaseSeconds = Math.ceil(games / batches) * clock;
           const fraction = durationStats?.avgFractionOfClock ?? DEFAULT_FRACTION_OF_CLOCK;
-          const typicalSeconds = worstCaseSeconds * fraction;
+          const typicalSeconds = (games * clock * fraction) / batches;
           const basis =
             durationStats && durationStats.sampleSize > 0
               ? `based on ${durationStats.sampleSize} past game${durationStats.sampleSize === 1 ? "" : "s"}`

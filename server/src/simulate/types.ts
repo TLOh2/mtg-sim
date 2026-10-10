@@ -36,4 +36,8 @@ export interface BatchRunResult {
   completedGames: number;
   games: GameResult[];
   rawStdout: string;
+  /** How many Forge processes the games were split across (see forgeRunner's parallelBatchCount). */
+  parallelBatches: number;
+  /** The per-game limit Forge actually enforced - the requested clock, stretched when batches run in parallel. */
+  effectiveClockSeconds: number;
 }

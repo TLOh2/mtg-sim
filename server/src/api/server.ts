@@ -28,6 +28,8 @@ import {
 import { computeDeckLeaderboard, computeGameDurationStats } from "../analyze/deckLeaderboard.js";
 import { computeNeverCastCards } from "../analyze/neverCast.js";
 import { computeAwards } from "../analyze/awards.js";
+import { computeEliminations } from "../analyze/eliminations.js";
+import { PARALLEL_SLOWDOWN, parallelBatchCount } from "../simulate/forgeRunner.js";
 import { listDecks } from "../decks/deckLibrary.js";
 import type { DeckSelection } from "../decks/types.js";
 import type { RunSummary } from "../analyze/types.js";
@@ -162,7 +164,14 @@ const server = createServer(async (req, res) => {
     const runs = listRunIds()
       .map(loadRun)
       .filter((r): r is RunSummary => r !== null);
-    sendJson(res, 200, computeGameDurationStats(runs));
+    sendJson(
+      res,
+      200,
+      computeGameDurationStats(runs, {
+        maxBatches: parallelBatchCount(Number.MAX_SAFE_INTEGER),
+        clockFactor: PARALLEL_SLOWDOWN,
+      }),
+    );
     return;
   }
 
@@ -276,12 +285,13 @@ const server = createServer(async (req, res) => {
     const { games, ...summary } = run;
     sendJson(res, 200, {
       ...summary,
-      games: games.map(({ gameIndex, winnerName, isDraw, durationMs, turningPoints }) => ({
+      games: games.map(({ gameIndex, winnerName, isDraw, durationMs, turningPoints, events, analyticsEvents }) => ({
         gameIndex,
         winnerName,
         isDraw,
         durationMs,
         turningPointCount: turningPoints.length,
+        eliminations: computeEliminations(analyticsEvents ?? [], events ?? [], run.commandersByPlayer ?? {}),
       })),
     });
     return;

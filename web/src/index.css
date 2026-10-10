@@ -156,6 +156,15 @@ h3 {
   cursor: pointer;
 }
 
+.finishers-cell {
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.finishers-cell .player-name {
+  font-weight: 600;
+}
+
 .clickable-row:hover {
   background: var(--row-hover);
 }

@@ -116,6 +116,8 @@ export async function runAndAnalyzePod(opts: RunAndAnalyzeOptions): Promise<RunS
       commandersByPlayer,
       requestedGames: opts.games,
       clockSeconds: opts.clockSeconds,
+      effectiveClockSeconds: batch.effectiveClockSeconds,
+      parallelBatches: batch.parallelBatches,
       aiProfiles: opts.aiProfiles,
       completedGames: batch.completedGames,
       winsByPlayer,

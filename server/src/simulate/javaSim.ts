@@ -69,9 +69,14 @@ export interface JavaSimInvocation {
   cwd: string;
 }
 
+/** Per-JVM max heap - see engine/run-sim.sh's own comment on why the default is intentionally conservative. */
+export function forgeHeapMb(): number {
+  const fromEnv = Number(process.env.FORGE_MAX_HEAP_MB);
+  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 384;
+}
+
 function baseJavaArgs(): string[] {
-  const heapMb = process.env.FORGE_MAX_HEAP_MB ?? "384"; // see engine/run-sim.sh's own comment on why this default is intentionally conservative
-  return ["-Djava.awt.headless=true", `-Xmx${heapMb}m`, "-cp", runtimeClasspath()];
+  return ["-Djava.awt.headless=true", `-Xmx${forgeHeapMb()}m`, "-cp", runtimeClasspath()];
 }
 
 function javaExecutable(): string {

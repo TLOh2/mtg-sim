@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { Award, CardCastCount, DeckAggregateStats, RunDetail, RunStats, SpellsByRoundPoint } from "../types";
+import type {
+  Award,
+  CardCastCount,
+  DeckAggregateStats,
+  Elimination,
+  FinisherCard,
+  RunDetail,
+  RunStats,
+  SpellsByRoundPoint,
+} from "../types";
 import { ThreatMatrixTable } from "./ThreatMatrix";
 import { StatusBadge, WinRateBar, shortName } from "./RunList";
 import { HorizontalBarChart, LineChart, seriesColor } from "./Charts";
@@ -8,6 +17,26 @@ import { formatStoryAsText } from "./GameStoryView";
 import { createZip, downloadBlob } from "../lib/zip";
 
 const POLL_MS = 4000;
+
+const finisherLabel = (c: FinisherCard) => (c.count > 1 ? `${c.card} ×${c.count}` : c.card);
+
+/** One line per knockout: the biggest two contributors, then "+N" for the rest of a big swing. */
+function summarizeFinishers(e: Elimination): string {
+  if (e.cause === "decked") return "decked out";
+  if (e.cause === "other") return e.detail ?? "other";
+  const suffix =
+    e.cause === "commander damage" ? " (commander damage)" : e.cause === "poison" ? " (poison)" : e.cause === "life loss" ? " (life loss)" : "";
+  if (e.cards.length === 0) return e.cause;
+  const shown = e.cards.slice(0, 2).map(finisherLabel).join(", ");
+  const rest = e.cards.length - 2;
+  return `${shown}${rest > 0 ? ` +${rest}` : ""}${suffix}`;
+}
+
+function describeElimination(e: Elimination): string {
+  const head = `${shortName(e.player)} knocked out${e.turn !== null ? ` on turn ${e.turn}` : ""}${e.by ? ` by ${shortName(e.by)}` : ""} (${e.cause})`;
+  const lines = e.cards.map((c) => `• ${finisherLabel(c)}${c.amount !== null ? `: ${c.amount}` : ""}`);
+  return [head, ...lines].join("\n");
+}
 
 /**
  * completedGames now updates in real time as each game actually finishes
@@ -256,15 +285,23 @@ export function RunDetailView({
                 <th>Result</th>
                 <th>Duration</th>
                 <th>Turning points</th>
+                <th>Finishers</th>
               </tr>
             </thead>
             <tbody>
               {run.games.map((game) => (
                 <tr key={game.gameIndex} onClick={() => onSelectGame(game.gameIndex)} className="clickable-row">
                   <td>{game.gameIndex}</td>
-                  <td>{game.isDraw ? "Draw" : shortName(game.winnerName ?? "?")} won</td>
+                  <td>{game.isDraw ? "Draw" : `${shortName(game.winnerName ?? "?")} won`}</td>
                   <td>{(game.durationMs / 1000).toFixed(1)}s</td>
                   <td>{game.turningPointCount}</td>
+                  <td className="finishers-cell">
+                    {(game.eliminations ?? []).map((e) => (
+                      <div key={e.player} title={describeElimination(e)}>
+                        <span className="player-name">{shortName(e.player)}</span> ← {summarizeFinishers(e)}
+                      </div>
+                    ))}
+                  </td>
                 </tr>
               ))}
             </tbody>
